@@ -42,7 +42,7 @@ struct ModelSettingsView: View {
           )
           Slider(value: $configuration.autoAcceptConfidence, in: 0.75...0.99, step: 0.01)
           Text(
-            "Calls below this confidence do not change the official score. The agent keeps listening and can try again on a clearer call."
+            "Calls below this confidence do not change the official score. A short pause after a stable call commits it for scoring and model thinking, even if the recognizer has not marked the transcript final."
           )
           .font(.footnote)
           .foregroundStyle(.secondary)

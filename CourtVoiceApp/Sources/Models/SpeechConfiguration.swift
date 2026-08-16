@@ -43,6 +43,7 @@ struct SpeechConfiguration: Codable, Equatable, Sendable {
   var scoreReasoningEndpoint = "https://api.deepseek.com/chat/completions"
   var scoreReasoningModel = "deepseek-v4-flash"
   var scoreReasoningEffort = "high"
+  var utteranceCommitDelay = 1.1
 
   static let standard = SpeechConfiguration()
 
@@ -59,7 +60,8 @@ struct SpeechConfiguration: Codable, Equatable, Sendable {
     scoreReasoningEnabled: Bool = true,
     scoreReasoningEndpoint: String = "https://api.deepseek.com/chat/completions",
     scoreReasoningModel: String = "deepseek-v4-flash",
-    scoreReasoningEffort: String = "high"
+    scoreReasoningEffort: String = "high",
+    utteranceCommitDelay: TimeInterval = 1.1
   ) {
     self.provider = provider
     self.localeIdentifier = localeIdentifier
@@ -72,6 +74,7 @@ struct SpeechConfiguration: Codable, Equatable, Sendable {
     self.scoreReasoningEndpoint = scoreReasoningEndpoint
     self.scoreReasoningModel = scoreReasoningModel
     self.scoreReasoningEffort = scoreReasoningEffort
+    self.utteranceCommitDelay = utteranceCommitDelay
   }
 
   init(from decoder: any Decoder) throws {
@@ -97,5 +100,7 @@ struct SpeechConfiguration: Codable, Equatable, Sendable {
       try container.decodeIfPresent(String.self, forKey: .scoreReasoningModel) ?? "deepseek-v4-flash"
     scoreReasoningEffort =
       try container.decodeIfPresent(String.self, forKey: .scoreReasoningEffort) ?? "high"
+    utteranceCommitDelay =
+      try container.decodeIfPresent(TimeInterval.self, forKey: .utteranceCommitDelay) ?? 1.1
   }
 }

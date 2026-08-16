@@ -65,6 +65,11 @@ struct VoiceInsightPanel: View {
             Text(line.text)
               .font(.body.weight(line.isFinal ? .medium : .regular))
               .foregroundStyle(.white.opacity(line.isFinal ? 0.92 : 0.7))
+              .accessibilityIdentifier(
+                line.id == controller.transcriptLines.last?.id
+                  ? "live.transcript.latest"
+                  : "live.transcript.line"
+              )
           }
         }
       }

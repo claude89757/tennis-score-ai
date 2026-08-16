@@ -59,6 +59,63 @@ final class SpeechScoringTests: XCTestCase {
     XCTAssertTrue(controller.reasoningAnswer.contains("reported_score"))
   }
 
+  func testReachableLaterScoreCatchesUpInTheSameGame() async throws {
+    let controller = try makeController()
+
+    await controller.ingestFinalTranscriptForTesting("15-0")
+    await controller.ingestFinalTranscriptForTesting("30平")
+    await controller.waitForReasoningToSettleForTesting()
+
+    XCTAssertEqual(controller.state.currentGame.rawPoints.home, 2)
+    XCTAssertEqual(controller.state.currentGame.rawPoints.away, 2)
+  }
+
+  func testSpokenSentenceFifteenLoveScoresFromStablePartial() async throws {
+    var configuration = SpeechConfiguration.standard
+    configuration.utteranceCommitDelay = 0.05
+    let controller = try makeController(configuration: configuration)
+
+    await controller.ingestTranscriptForTesting(
+      "现在比分是15比零",
+      confidence: 0.31,
+      isFinal: false
+    )
+    try await Task.sleep(for: .milliseconds(120))
+    await controller.waitForReasoningToSettleForTesting()
+
+    XCTAssertEqual(controller.state.currentGame.rawPoints.home, 1)
+    XCTAssertEqual(controller.state.currentGame.rawPoints.away, 0)
+  }
+
+  func testStablePartialTranscriptCommitsAfterPause() async throws {
+    var configuration = SpeechConfiguration.standard
+    configuration.utteranceCommitDelay = 0.05
+    let controller = try makeController(configuration: configuration)
+
+    await controller.ingestTranscriptForTesting("15-0", isFinal: false)
+    XCTAssertEqual(controller.state.currentGame.rawPoints.home, 0)
+
+    try await Task.sleep(for: .milliseconds(120))
+    await controller.waitForReasoningToSettleForTesting()
+
+    XCTAssertEqual(controller.state.currentGame.rawPoints.home, 1)
+    XCTAssertTrue(controller.lastTranscriptIsFinal)
+  }
+
+  func testStablePartialThenMatchingFinalDoesNotDoubleCount() async throws {
+    var configuration = SpeechConfiguration.standard
+    configuration.utteranceCommitDelay = 0.05
+    let controller = try makeController(configuration: configuration)
+
+    await controller.ingestTranscriptForTesting("15-0", isFinal: false)
+    try await Task.sleep(for: .milliseconds(120))
+    await controller.ingestFinalTranscriptForTesting("15-0")
+    await controller.waitForReasoningToSettleForTesting()
+
+    XCTAssertEqual(controller.state.currentGame.rawPoints.home, 1)
+    XCTAssertEqual(controller.state.currentGame.rawPoints.away, 0)
+  }
+
   func testReasoningDoesNotDoubleCountAfterParserScores() async throws {
     let answer =
       #"{"intent":"reported_score","server":"thirty","receiver":"love","confidence":0.96,"summary":"30-0"}"#
@@ -72,6 +129,7 @@ final class SpeechScoringTests: XCTestCase {
   }
 
   private func makeController(
+    configuration: SpeechConfiguration = .standard,
     reasoningClient: (any ScoreReasoningClient)? = nil
   ) throws -> MatchSessionController {
     let repository = MatchRepository(baseDirectory: temporaryDirectory())
@@ -85,6 +143,7 @@ final class SpeechScoringTests: XCTestCase {
     return try MatchSessionController(
       initialState: state,
       repository: repository,
+      speechConfiguration: configuration,
       reasoningClient: reasoningClient
     )
   }

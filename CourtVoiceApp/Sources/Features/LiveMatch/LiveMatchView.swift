@@ -119,9 +119,11 @@ struct LiveMatchView: View {
         .foregroundStyle(CourtVoiceTheme.tennisYellow)
       Text(controller.lastActionDescription)
         .lineLimit(2)
+        .accessibilityIdentifier("live.lastAction")
       Spacer()
       Text(ScoreFormatter.spokenScore(for: controller.state))
         .fontWeight(.semibold)
+        .accessibilityIdentifier("live.spokenScore")
     }
     .font(.subheadline)
     .foregroundStyle(.white.opacity(0.82))

@@ -17,6 +17,7 @@ final class MatchSessionController: Identifiable {
   private let resolver = ScoreIntentResolver()
   private var speechProvider: (any LiveSpeechProvider)?
   private let reasoningTask = CancellableTaskHandle()
+  private let utteranceCommitTask = CancellableTaskHandle()
   private let reasoningClientOverride: (any ScoreReasoningClient)?
 
   var lastErrorMessage: String?
@@ -30,6 +31,8 @@ final class MatchSessionController: Identifiable {
   var reasoningAnswer = ""
   var activeProviderID: String?
   private var lastCommittedSpeechID: UUID?
+  private var lastHandledUtteranceKey: String?
+  private var lastHandledUtteranceAt: Date?
 
   var state: MatchState { timeline.currentState }
   var isListening: Bool { speechState.isActive }
@@ -119,6 +122,7 @@ final class MatchSessionController: Identifiable {
     let provider = speechProvider
     speechProvider = nil
     reasoningTask.cancel()
+    utteranceCommitTask.cancel()
     await provider?.stop()
     speechState = .idle
     activeProviderID = nil
@@ -129,11 +133,20 @@ final class MatchSessionController: Identifiable {
     confidence: Double = 0.99,
     providerID: String = "test.local"
   ) async {
+    await ingestTranscriptForTesting(text, confidence: confidence, isFinal: true, providerID: providerID)
+  }
+
+  func ingestTranscriptForTesting(
+    _ text: String,
+    confidence: Double = 0.99,
+    isFinal: Bool = true,
+    providerID: String = "test.local"
+  ) async {
     await handleTranscription(
       SpeechTranscription(
         text: text,
         confidence: confidence,
-        isFinal: true,
+        isFinal: isFinal,
         providerID: providerID
       )
     )
@@ -159,11 +172,82 @@ final class MatchSessionController: Identifiable {
     lastTranscriptIsFinal = transcription.isFinal
     appendTranscript(transcription)
 
-    guard transcription.isFinal else { return }
+    if transcription.isFinal {
+      utteranceCommitTask.cancel()
+      await commitUtteranceIfNeeded(transcription)
+      return
+    }
+
+    scheduleStableUtteranceCommit(transcription)
+  }
+
+  private func scheduleStableUtteranceCommit(_ transcription: SpeechTranscription) {
+    let text = transcription.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard text.count >= 2 else { return }
+
+    utteranceCommitTask.store(
+      Task { [weak self] in
+        guard let self else { return }
+        try? await Task.sleep(for: .seconds(self.speechConfiguration.utteranceCommitDelay))
+        guard Task.isCancelled == false else { return }
+        let current = self.lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard current == text else { return }
+        self.markLatestTranscriptFinal()
+        await self.commitUtteranceIfNeeded(
+          SpeechTranscription(
+            id: transcription.id,
+            text: current,
+            confidence: nil,
+            isFinal: true,
+            providerID: transcription.providerID
+          )
+        )
+      }
+    )
+  }
+
+  private func commitUtteranceIfNeeded(_ transcription: SpeechTranscription) async {
+    let key = utteranceKey(transcription.text)
+    guard key.isEmpty == false else { return }
+    if key == lastHandledUtteranceKey,
+      let handledAt = lastHandledUtteranceAt,
+      Date().timeIntervalSince(handledAt) < 2.5
+    {
+      return
+    }
+    lastHandledUtteranceKey = key
+    lastHandledUtteranceAt = Date()
 
     let candidate = parser.parse(transcription.text)
     await applyResolvedCandidate(candidate, transcription: transcription)
     await startScoreReasoning(for: transcription)
+  }
+
+  private func scoringConfidence(
+    for candidate: IntentCandidate,
+    transcription: SpeechTranscription
+  ) -> Double {
+    if candidate.parserID.hasPrefix("deepseek") {
+      return candidate.confidence
+    }
+    guard let audioConfidence = transcription.confidence else {
+      return candidate.confidence
+    }
+    return min(candidate.confidence, audioConfidence)
+  }
+
+  private func markLatestTranscriptFinal() {
+    lastTranscriptIsFinal = true
+    guard transcriptLines.isEmpty == false else { return }
+    transcriptLines[transcriptLines.count - 1].isFinal = true
+  }
+
+  private func utteranceKey(_ text: String) -> String {
+    text
+      .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+      .lowercased()
+      .split(whereSeparator: \.isWhitespace)
+      .joined(separator: " ")
   }
 
   @discardableResult
@@ -171,8 +255,7 @@ final class MatchSessionController: Identifiable {
     _ candidate: IntentCandidate,
     transcription: SpeechTranscription
   ) async -> Bool {
-    let providerConfidence = transcription.confidence ?? candidate.confidence
-    let combinedConfidence = min(candidate.confidence, providerConfidence)
+    let combinedConfidence = scoringConfidence(for: candidate, transcription: transcription)
     let isTrusted =
       candidate.requiresConfirmation == false
       && combinedConfidence >= speechConfiguration.autoAcceptConfidence
@@ -191,6 +274,18 @@ final class MatchSessionController: Identifiable {
     switch resolver.resolve(candidate, state: state) {
     case .event(let kind):
       await applySpeechEvent(kind, transcription: transcription)
+      lastCommittedSpeechID = transcription.id
+      return true
+    case .events(let kinds):
+      for (offset, kind) in kinds.enumerated() {
+        await apply(
+          kind,
+          evidence: evidence(for: transcription),
+          idempotencyKey:
+            "speech-\(transcription.providerID)-\(transcription.id.uuidString)-\(offset)",
+          successDescription: "Agent scored: \(transcription.text)"
+        )
+      }
       lastCommittedSpeechID = transcription.id
       return true
     case .alreadyCurrent:

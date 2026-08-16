@@ -87,12 +87,13 @@ public struct TranscriptIntentParser: Sendable {
             ("零", .love), ("十五", .fifteen), ("三十", .thirty), ("四十", .forty),
             ("love", .love), ("fifteen", .fifteen), ("thirty", .thirty), ("forty", .forty),
             ("0", .love), ("15", .fifteen), ("30", .thirty), ("40", .forty)
-        ]
+        ].sorted { $0.0.count > $1.0.count }
         for (token, point) in allScores where text.contains(token + "平") || text.contains(token + " all") {
             return (point, point, 0.96)
         }
 
         let canonical = text
+            .replacingOccurrences(of: "比分", with: " ")
             .replacingOccurrences(of: "比", with: "-")
             .replacingOccurrences(of: "：", with: "-")
             .replacingOccurrences(of: ":", with: "-")
@@ -131,7 +132,35 @@ public struct TranscriptIntentParser: Sendable {
             }
         }
 
+        if let embedded = lastTwoPointTokens(in: canonical) {
+            return (embedded.0, embedded.1, 0.94)
+        }
+
         return nil
+    }
+
+    private func lastTwoPointTokens(in text: String) -> (ReportedPoint, ReportedPoint)? {
+        let lexicon: [(String, ReportedPoint)] = [
+            ("fifteen", .fifteen), ("thirty", .thirty), ("forty", .forty), ("love", .love),
+            ("十五", .fifteen), ("三十", .thirty), ("四十", .forty),
+            ("15", .fifteen), ("30", .thirty), ("40", .forty),
+            ("零", .love), ("0", .love),
+        ].sorted { $0.0.count > $1.0.count }
+
+        var found: [ReportedPoint] = []
+        var index = text.startIndex
+        while index < text.endIndex {
+            let rest = String(text[index...])
+            if let match = lexicon.first(where: { rest.hasPrefix($0.0) }) {
+                found.append(match.1)
+                index = text.index(index, offsetBy: match.0.count)
+            } else {
+                index = text.index(after: index)
+            }
+        }
+
+        guard found.count >= 2 else { return nil }
+        return (found[found.count - 2], found[found.count - 1])
     }
 
     private func point(from token: String) -> ReportedPoint? {

@@ -4,18 +4,15 @@ import SwiftUI
 struct LiveMatchView: View {
   @Bindable var controller: MatchSessionController
   let onClose: () -> Void
+  @Environment(\.l10n) private var l10n
 
   var body: some View {
     GeometryReader { proxy in
       let isLandscape = proxy.size.width > proxy.size.height
 
       ZStack {
-        LinearGradient(
-          colors: [CourtVoiceTheme.courtGreen, CourtVoiceTheme.ink],
-          startPoint: .topLeading,
-          endPoint: .bottomTrailing
-        )
-        .ignoresSafeArea()
+        CourtVoiceTheme.courtGradient
+          .ignoresSafeArea()
 
         if isLandscape {
           landscapeLayout
@@ -33,7 +30,7 @@ struct LiveMatchView: View {
       Task { await controller.stopListening() }
     }
     .alert(
-      "Scoring error",
+      l10n.scoringError,
       isPresented: Binding(
         get: { controller.lastErrorMessage != nil },
         set: { isPresented in
@@ -41,10 +38,10 @@ struct LiveMatchView: View {
         }
       ),
       actions: {
-        Button("OK", role: .cancel) { controller.lastErrorMessage = nil }
+        Button(l10n.ok, role: .cancel) { controller.lastErrorMessage = nil }
       },
       message: {
-        Text(controller.lastErrorMessage ?? "Unknown error")
+        Text(controller.lastErrorMessage ?? l10n.unknownError)
       }
     )
   }
@@ -85,16 +82,17 @@ struct LiveMatchView: View {
           .frame(width: CourtVoiceTheme.minimumHitTarget, height: CourtVoiceTheme.minimumHitTarget)
       }
       .buttonStyle(.bordered)
-      .accessibilityLabel("Close match")
+      .foregroundStyle(CourtVoiceTheme.onCourt)
+      .accessibilityLabel(l10n.closeMatch)
       .accessibilityIdentifier("live.close")
 
       VStack(alignment: .leading, spacing: 2) {
-        Text("LIVE MATCH")
+        Text(l10n.liveMatch)
           .font(.caption.bold())
           .foregroundStyle(CourtVoiceTheme.tennisYellow)
         Text(matchStatusText)
           .font(.subheadline)
-          .foregroundStyle(.white.opacity(0.72))
+          .foregroundStyle(CourtVoiceTheme.onCourtMuted)
       }
       .lineLimit(1)
       .minimumScaleFactor(0.7)
@@ -105,7 +103,7 @@ struct LiveMatchView: View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
           Text(elapsedTime(from: startedAt, to: context.date))
             .font(.headline.monospacedDigit())
-            .foregroundStyle(.white)
+            .foregroundStyle(CourtVoiceTheme.onCourt)
             .lineLimit(1)
         }
         .layoutPriority(0)
@@ -117,19 +115,19 @@ struct LiveMatchView: View {
     HStack(spacing: 10) {
       Image(systemName: statusIcon)
         .foregroundStyle(CourtVoiceTheme.tennisYellow)
-      Text(controller.lastActionDescription)
+      Text(l10n.liveAction(controller.lastAction))
         .lineLimit(2)
         .accessibilityIdentifier("live.lastAction")
       Spacer()
-      Text(ScoreFormatter.spokenScore(for: controller.state))
+      Text(ScoreFormatter.spokenScore(for: controller.state, locale: l10n.language.locale))
         .fontWeight(.semibold)
         .accessibilityIdentifier("live.spokenScore")
     }
     .font(.subheadline)
-    .foregroundStyle(.white.opacity(0.82))
+    .foregroundStyle(CourtVoiceTheme.onCourtMuted)
     .padding(.horizontal, 16)
     .frame(minHeight: 48)
-    .background(.white.opacity(0.08), in: Capsule())
+    .background(CourtVoiceTheme.courtPanel, in: Capsule())
   }
 
   private var statusIcon: String {
@@ -143,10 +141,10 @@ struct LiveMatchView: View {
 
   private var matchStatusText: String {
     switch controller.state.status {
-    case .notStarted: "Not started"
-    case .inProgress: "Agent scoring"
-    case .paused: "Paused"
-    case .completed(let winner): "Winner: \(controller.state.teams[winner].displayName)"
+    case .notStarted: l10n.matchStatusNotStarted
+    case .inProgress: l10n.matchStatusAgentScoring
+    case .paused: l10n.matchStatusPaused
+    case .completed(let winner): l10n.winner(controller.state.teams[winner].displayName)
     }
   }
 

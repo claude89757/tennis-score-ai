@@ -3,43 +3,37 @@ import SwiftUI
 struct OnboardingView: View {
   let onComplete: () -> Void
 
+  @Environment(\.l10n) private var l10n
   @State private var page = 0
 
-  private let pages = [
-    OnboardingPage(
-      icon: "waveform.and.mic",
-      title: "Call the score naturally",
-      detail:
-        "Start a match, then let the voice agent keep score. CourtVoice listens only while the match is active."
-    ),
-    OnboardingPage(
-      icon: "checkmark.shield.fill",
-      title: "Rules before AI",
-      detail:
-        "Speech produces a candidate action. A deterministic tennis rules engine is the only component allowed to change the official score."
-    ),
-    OnboardingPage(
-      icon: "rectangle.on.rectangle.angled",
-      title: "Readable from the baseline",
-      detail:
-        "Use the large landscape scoreboard on court, mirror it with AirPlay, or share a match summary afterward."
-    ),
-  ]
-
   var body: some View {
+    let pages = [
+      OnboardingPage(
+        icon: "waveform.and.mic",
+        title: l10n.onboardingTitle1,
+        detail: l10n.onboardingDetail1
+      ),
+      OnboardingPage(
+        icon: "checkmark.shield.fill",
+        title: l10n.onboardingTitle2,
+        detail: l10n.onboardingDetail2
+      ),
+      OnboardingPage(
+        icon: "rectangle.on.rectangle.angled",
+        title: l10n.onboardingTitle3,
+        detail: l10n.onboardingDetail3
+      ),
+    ]
+
     ZStack {
-      LinearGradient(
-        colors: [CourtVoiceTheme.courtGreen, CourtVoiceTheme.ink],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-      )
-      .ignoresSafeArea()
+      CourtVoiceTheme.courtGradient
+        .ignoresSafeArea()
 
       VStack(spacing: 24) {
         HStack {
           Spacer()
-          Button("Skip", action: onComplete)
-            .foregroundStyle(.white.opacity(0.85))
+          Button(l10n.skip, action: onComplete)
+            .foregroundStyle(CourtVoiceTheme.onCourtMuted)
             .padding(.horizontal, 8)
             .frame(minHeight: CourtVoiceTheme.minimumHitTarget)
             .accessibilityIdentifier("onboarding.skip")
@@ -59,10 +53,11 @@ struct OnboardingView: View {
                 Text(item.title)
                   .font(.system(.largeTitle, design: .rounded, weight: .bold))
                   .multilineTextAlignment(.center)
+                  .accessibilityIdentifier("onboarding.title")
 
                 Text(item.detail)
                   .font(.title3)
-                  .foregroundStyle(.white.opacity(0.74))
+                  .foregroundStyle(CourtVoiceTheme.onCourtMuted)
                   .multilineTextAlignment(.center)
                   .lineSpacing(4)
               }
@@ -70,7 +65,7 @@ struct OnboardingView: View {
               Spacer()
             }
             .padding(.horizontal, 28)
-            .foregroundStyle(.white)
+            .foregroundStyle(CourtVoiceTheme.onCourt)
             .tag(index)
           }
         }
@@ -83,7 +78,7 @@ struct OnboardingView: View {
             withAnimation(.snappy) { page += 1 }
           }
         } label: {
-          Text(page == pages.count - 1 ? "Start using CourtVoice" : "Continue")
+          Text(page == pages.count - 1 ? l10n.onboardingStart : l10n.continueAction)
             .font(.headline)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 56)

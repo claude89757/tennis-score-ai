@@ -10,5 +10,11 @@ final class AppPreferencesTests: XCTestCase {
 
     XCTAssertTrue(preferences.hasCompletedOnboarding)
     XCTAssertEqual(preferences.speechConfiguration, .standard)
+    XCTAssertEqual(preferences.appLanguage, .chinese)
+  }
+
+  func testInitialPreferencesDefaultToChinese() {
+    XCTAssertEqual(AppPreferences.initial.appLanguage, .chinese)
+    XCTAssertEqual(AppPreferences.initial.speechConfiguration.localeIdentifier, "zh-CN")
   }
 }

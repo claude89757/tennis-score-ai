@@ -2,14 +2,16 @@ import SwiftUI
 
 struct VoiceInsightPanel: View {
   @Bindable var controller: MatchSessionController
+  @Environment(\.l10n) private var l10n
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       HStack(spacing: 9) {
         Image(systemName: speechStateIcon)
           .foregroundStyle(CourtVoiceTheme.tennisYellow)
-        Text(controller.speechState.title)
+        Text(l10n.speechState(controller.speechState))
           .font(.subheadline.weight(.semibold))
+          .foregroundStyle(CourtVoiceTheme.onCourt)
           .lineLimit(2)
           .accessibilityIdentifier("live.speechState")
         Spacer()
@@ -28,43 +30,47 @@ struct VoiceInsightPanel: View {
         }
       } label: {
         Label(
-          controller.isListening ? "Pause agent" : "Start voice agent",
+          controller.isListening ? l10n.pauseAgent : l10n.startVoiceAgent,
           systemImage: controller.isListening ? "pause.fill" : "waveform.and.mic"
         )
         .frame(maxWidth: .infinity)
         .frame(minHeight: 50)
       }
       .buttonStyle(.borderedProminent)
-      .tint(controller.isListening ? .white : CourtVoiceTheme.tennisYellow)
+      .tint(controller.isListening ? CourtVoiceTheme.onCourt : CourtVoiceTheme.tennisYellow)
       .foregroundStyle(CourtVoiceTheme.ink)
       .disabled(controller.state.status != .inProgress)
       .accessibilityIdentifier("live.listen")
     }
     .padding(16)
-    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 22))
+    .background(CourtVoiceTheme.courtPanel, in: RoundedRectangle(cornerRadius: 22))
+    .overlay {
+      RoundedRectangle(cornerRadius: 22)
+        .stroke(CourtVoiceTheme.courtPanelStroke, lineWidth: 1)
+    }
   }
 
   private var transcriptSection: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("TRANSCRIPT")
+      Text(l10n.transcript)
         .font(.caption.bold())
-        .foregroundStyle(.white.opacity(0.5))
+        .foregroundStyle(CourtVoiceTheme.onCourtFaint)
         .accessibilityIdentifier("live.transcript")
 
       if controller.transcriptLines.isEmpty {
-        Text("The agent will transcribe court calls here as they arrive.")
+        Text(l10n.transcriptEmpty)
           .font(.footnote)
-          .foregroundStyle(.white.opacity(0.7))
+          .foregroundStyle(CourtVoiceTheme.onCourtMuted)
       } else {
         ForEach(Array(controller.transcriptLines.suffix(5))) { line in
           HStack(alignment: .top, spacing: 8) {
-            Text(line.isFinal ? "Final" : "Live")
+            Text(line.isFinal ? l10n.transcriptFinal : l10n.transcriptLive)
               .font(.caption2.bold())
-              .foregroundStyle(line.isFinal ? CourtVoiceTheme.tennisYellow : .white.opacity(0.55))
+              .foregroundStyle(line.isFinal ? CourtVoiceTheme.tennisYellow : CourtVoiceTheme.onCourtFaint)
               .frame(width: 36, alignment: .leading)
             Text(line.text)
               .font(.body.weight(line.isFinal ? .medium : .regular))
-              .foregroundStyle(.white.opacity(line.isFinal ? 0.92 : 0.7))
+              .foregroundStyle(line.isFinal ? CourtVoiceTheme.onCourt : CourtVoiceTheme.onCourtMuted)
               .accessibilityIdentifier(
                 line.id == controller.transcriptLines.last?.id
                   ? "live.transcript.latest"
@@ -78,27 +84,27 @@ struct VoiceInsightPanel: View {
 
   private var reasoningSection: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(controller.reasoningPhase.title.uppercased())
+      Text(l10n.reasoningPhase(controller.reasoningPhase))
         .font(.caption.bold())
-        .foregroundStyle(.white.opacity(0.5))
+        .foregroundStyle(CourtVoiceTheme.onCourtFaint)
         .accessibilityIdentifier("live.reasoning")
 
       if controller.reasoningThinking.isEmpty, controller.reasoningAnswer.isEmpty {
-        Text("DeepSeek thinking appears here after a final transcript. It can propose an intent; only the rules engine may change the score.")
+        Text(l10n.reasoningEmpty)
           .font(.footnote)
-          .foregroundStyle(.white.opacity(0.7))
+          .foregroundStyle(CourtVoiceTheme.onCourtMuted)
       } else {
         if controller.reasoningThinking.isEmpty == false {
           Text(controller.reasoningThinking)
             .font(.footnote)
-            .foregroundStyle(.white.opacity(0.72))
+            .foregroundStyle(CourtVoiceTheme.onCourtMuted)
             .lineLimit(8)
             .accessibilityIdentifier("live.reasoning.thinking")
         }
         if controller.reasoningAnswer.isEmpty == false {
           Text(controller.reasoningAnswer)
             .font(.footnote.weight(.semibold))
-            .foregroundStyle(CourtVoiceTheme.tennisYellow.opacity(0.9))
+            .foregroundStyle(CourtVoiceTheme.tennisYellow.opacity(0.92))
             .lineLimit(6)
             .accessibilityIdentifier("live.reasoning.answer")
         }

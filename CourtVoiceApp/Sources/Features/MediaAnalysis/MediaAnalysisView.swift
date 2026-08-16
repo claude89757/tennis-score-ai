@@ -5,11 +5,13 @@ import UniformTypeIdentifiers
 struct MediaAnalysisView: View {
   @Environment(AppModel.self) private var appModel
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.l10n) private var l10n
 
   @State private var viewModel = MediaAnalysisViewModel()
   @State private var draft = MatchConfigurationDraft()
   @State private var isShowingImporter = false
   @State private var saveMessage: String?
+  @State private var didApplyLanguage = false
 
   var body: some View {
     NavigationStack {
@@ -25,16 +27,24 @@ struct MediaAnalysisView: View {
         }
         .padding()
       }
-      .background(CourtVoiceTheme.ivory.ignoresSafeArea())
-      .navigationTitle("Analyze match media")
+      .courtVoiceCanvas()
+      .navigationTitle(l10n.analyzeMatchMedia)
       .navigationBarTitleDisplayMode(.inline)
+      .toolbarBackground(CourtVoiceTheme.canvas, for: .navigationBar)
+      .toolbarBackground(.visible, for: .navigationBar)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Close") {
+          Button(l10n.close) {
             viewModel.cancel()
             dismiss()
           }
+          .accessibilityIdentifier("media.close")
         }
+      }
+      .onAppear {
+        guard didApplyLanguage == false else { return }
+        draft = .standard(language: l10n.language)
+        didApplyLanguage = true
       }
       .fileImporter(
         isPresented: $isShowingImporter,
@@ -67,7 +77,7 @@ struct MediaAnalysisView: View {
           }
         )
       ) {
-        Button("OK", role: .cancel) {}
+        Button(l10n.ok, role: .cancel) {}
       } message: {
         Text(viewModel.errorMessage ?? saveMessage ?? "")
       }
@@ -78,14 +88,13 @@ struct MediaAnalysisView: View {
     HStack(alignment: .top, spacing: 14) {
       Image(systemName: "film.stack.fill")
         .font(.largeTitle)
-        .foregroundStyle(CourtVoiceTheme.courtGreen)
+        .foregroundStyle(CourtVoiceTheme.accent)
       VStack(alignment: .leading, spacing: 6) {
-        Text("Create a reviewable score timeline")
+        Text(l10n.createReviewableTimeline)
           .font(.title2.bold())
-        Text(
-          "CourtVoice extracts the audio track, transcribes timestamped score calls, and commits only legal transitions. Ambiguous phrases remain visible for review."
-        )
-        .foregroundStyle(.secondary)
+          .foregroundStyle(CourtVoiceTheme.textPrimary)
+        Text(l10n.mediaIntro)
+          .foregroundStyle(CourtVoiceTheme.textSecondary)
       }
     }
     .courtVoiceCard()
@@ -93,23 +102,25 @@ struct MediaAnalysisView: View {
 
   private var matchIdentityCard: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Match identity")
+      Text(l10n.matchIdentity)
         .font(.headline)
-      TextField("Player or team 1", text: $draft.homeName)
+        .foregroundStyle(CourtVoiceTheme.textPrimary)
+      TextField(l10n.playerOrTeam1, text: $draft.homeName)
         .textFieldStyle(.roundedBorder)
-      TextField("Player or team 2", text: $draft.awayName)
+      TextField(l10n.playerOrTeam2, text: $draft.awayName)
         .textFieldStyle(.roundedBorder)
-      Picker("First server", selection: $draft.initialServer) {
+      Picker(l10n.firstServer, selection: $draft.initialServer) {
         Text(draft.homeName).tag(CourtVoiceCore.TeamSide.home)
         Text(draft.awayName).tag(CourtVoiceCore.TeamSide.away)
       }
       .pickerStyle(.segmented)
 
       LabeledContent(
-        "Media provider",
-        value: appModel.preferences.speechConfiguration.provider.title
+        l10n.mediaProvider,
+        value: l10n.providerTitle(appModel.preferences.speechConfiguration.provider)
       )
       .font(.footnote)
+      .foregroundStyle(CourtVoiceTheme.textSecondary)
     }
     .courtVoiceCard()
   }
@@ -119,15 +130,17 @@ struct MediaAnalysisView: View {
       if let sourceFilename = viewModel.sourceFilename {
         Label(sourceFilename, systemImage: "doc.fill")
           .font(.subheadline.weight(.semibold))
+          .foregroundStyle(CourtVoiceTheme.textPrimary)
           .lineLimit(1)
       }
 
       if isWorking {
         ProgressView(value: viewModel.progress) {
-          Text(viewModel.phase.title)
+          Text(l10n.mediaPhase(viewModel.phase))
+            .foregroundStyle(CourtVoiceTheme.textSecondary)
         }
-        .tint(CourtVoiceTheme.courtGreen)
-        Button("Cancel analysis", role: .cancel) {
+        .tint(CourtVoiceTheme.accent)
+        Button(l10n.cancelAnalysis, role: .cancel) {
           viewModel.cancel()
         }
       } else {
@@ -135,14 +148,15 @@ struct MediaAnalysisView: View {
           isShowingImporter = true
         } label: {
           Label(
-            viewModel.sourceFilename == nil ? "Choose video or audio" : "Choose another file",
+            viewModel.sourceFilename == nil ? l10n.chooseVideoOrAudio : l10n.chooseAnotherFile,
             systemImage: "square.and.arrow.down"
           )
           .frame(maxWidth: .infinity)
           .frame(minHeight: 52)
         }
         .buttonStyle(.borderedProminent)
-        .tint(CourtVoiceTheme.courtGreen)
+        .tint(CourtVoiceTheme.accent)
+        .foregroundStyle(CourtVoiceTheme.onAccent)
         .disabled(draft.canStart == false)
       }
     }
@@ -152,12 +166,13 @@ struct MediaAnalysisView: View {
   private func resultCard(_ analysis: MediaScoreAnalysis) -> some View {
     VStack(alignment: .leading, spacing: 14) {
       HStack {
-        Text("Transcript review")
+        Text(l10n.transcriptReview)
           .font(.headline)
+          .foregroundStyle(CourtVoiceTheme.textPrimary)
         Spacer()
-        Text("\(analysis.acceptedCount) accepted · \(analysis.reviewCount) review")
+        Text(l10n.acceptedAndReview(accepted: analysis.acceptedCount, review: analysis.reviewCount))
           .font(.caption.weight(.semibold))
-          .foregroundStyle(CourtVoiceTheme.courtGreen)
+          .foregroundStyle(CourtVoiceTheme.accent)
       }
 
       ScoreboardView(state: analysis.timeline.currentState)
@@ -171,18 +186,19 @@ struct MediaAnalysisView: View {
           do {
             try await viewModel.save(to: appModel.matchRepository)
             await appModel.refreshMatches()
-            saveMessage = "The accepted score timeline was saved to Match History."
+            saveMessage = l10n.timelineSaved
           } catch {
             viewModel.errorMessage = error.localizedDescription
           }
         }
       } label: {
-        Label("Save accepted timeline", systemImage: "square.and.arrow.down.fill")
+        Label(l10n.saveAcceptedTimeline, systemImage: "square.and.arrow.down.fill")
           .frame(maxWidth: .infinity)
           .frame(minHeight: 52)
       }
       .buttonStyle(.borderedProminent)
-      .tint(CourtVoiceTheme.courtGreen)
+      .tint(CourtVoiceTheme.accent)
+      .foregroundStyle(CourtVoiceTheme.onAccent)
     }
     .courtVoiceCard()
   }
@@ -199,6 +215,7 @@ struct MediaAnalysisView: View {
 
 private struct MediaAnalysisRowView: View {
   let row: MediaAnalysisRow
+  @Environment(\.l10n) private var l10n
 
   var body: some View {
     HStack(alignment: .top, spacing: 12) {
@@ -209,16 +226,17 @@ private struct MediaAnalysisRowView: View {
         HStack {
           Text(timestamp)
             .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
-          Text(outcomeTitle)
+            .foregroundStyle(CourtVoiceTheme.textSecondary)
+          Text(l10n.mediaOutcome(row.outcome))
             .font(.caption.bold())
             .foregroundStyle(color)
         }
         Text("“\(row.utterance.text)”")
           .font(.subheadline.weight(.medium))
+          .foregroundStyle(CourtVoiceTheme.textPrimary)
         Text(row.detail)
           .font(.caption)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(CourtVoiceTheme.textSecondary)
       }
       Spacer()
     }
@@ -228,15 +246,6 @@ private struct MediaAnalysisRowView: View {
   private var timestamp: String {
     let seconds = max(0, Int(row.utterance.startTime))
     return String(format: "%02d:%02d", seconds / 60, seconds % 60)
-  }
-
-  private var outcomeTitle: String {
-    switch row.outcome {
-    case .accepted: "ACCEPTED"
-    case .needsReview: "REVIEW"
-    case .ignored: "IGNORED"
-    case .rejected: "REJECTED"
-    }
   }
 
   private var icon: String {
@@ -250,10 +259,10 @@ private struct MediaAnalysisRowView: View {
 
   private var color: Color {
     switch row.outcome {
-    case .accepted: CourtVoiceTheme.courtGreen
+    case .accepted: CourtVoiceTheme.accent
     case .needsReview: CourtVoiceTheme.warning
-    case .ignored: .secondary
-    case .rejected: .red
+    case .ignored: CourtVoiceTheme.textSecondary
+    case .rejected: CourtVoiceTheme.danger
     }
   }
 }

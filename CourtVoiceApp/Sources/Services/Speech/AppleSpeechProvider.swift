@@ -34,7 +34,7 @@ final class AppleSpeechProvider: LiveSpeechProvider {
   private var finalizeTask: Task<Void, Never>?
   private var lastHeardText = ""
   private var shouldContinue = false
-  private var locale = Locale(identifier: "en-US")
+  private var locale = Locale(identifier: "zh-CN")
   private var contextualPhrases: [String] = []
   private var onTranscription: (@MainActor (SpeechTranscription) -> Void)?
   private var onStateChange: (@MainActor (SpeechSessionState) -> Void)?

@@ -4,6 +4,7 @@ import SwiftUI
 struct ModelSettingsView: View {
   @Environment(AppModel.self) private var appModel
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.l10n) private var l10n
 
   @State private var configuration = SpeechConfiguration.standard
   @State private var openAIKey = ""
@@ -17,18 +18,18 @@ struct ModelSettingsView: View {
 
   var body: some View {
     Form {
-      Section("Voice mode") {
-        Picker("Provider", selection: $configuration.provider) {
+      Section(l10n.voiceMode) {
+        Picker(l10n.provider, selection: $configuration.provider) {
           ForEach(SpeechProviderKind.allCases) { provider in
             VStack(alignment: .leading) {
-              Text(provider.title)
-              Text(provider.subtitle)
+              Text(l10n.providerTitle(provider))
+              Text(l10n.providerSubtitle(provider))
             }
             .tag(provider)
           }
         }
 
-        Picker("Recognition language", selection: $configuration.localeIdentifier) {
+        Picker(l10n.recognitionLanguage, selection: $configuration.localeIdentifier) {
           Text("简体中文").tag("zh-CN")
           Text("English (US)").tag("en-US")
           Text("한국어").tag("ko-KR")
@@ -36,31 +37,29 @@ struct ModelSettingsView: View {
 
         VStack(alignment: .leading, spacing: 8) {
           LabeledContent(
-            "Automatic acceptance",
+            l10n.automaticAcceptance,
             value: configuration.autoAcceptConfidence.formatted(
               .percent.precision(.fractionLength(0)))
           )
           Slider(value: $configuration.autoAcceptConfidence, in: 0.75...0.99, step: 0.01)
-          Text(
-            "Calls below this confidence do not change the official score. A short pause after a stable call commits it for scoring and model thinking, even if the recognizer has not marked the transcript final."
-          )
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+          Text(l10n.automaticAcceptanceHint)
+            .font(.footnote)
+            .foregroundStyle(CourtVoiceTheme.textSecondary)
         }
       }
 
       Section {
-        TextField("HTTPS transcription endpoint", text: $configuration.openAITranscriptionEndpoint)
+        TextField(l10n.openAIEndpoint, text: $configuration.openAITranscriptionEndpoint)
           .keyboardType(.URL)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
 
-        TextField("Transcription model", text: $configuration.openAITranscriptionModel)
+        TextField(l10n.transcriptionModel, text: $configuration.openAITranscriptionModel)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
 
         SecureField(
-          hasOpenAIKey ? "API key saved — enter to replace" : "API key",
+          hasOpenAIKey ? l10n.apiKeySavedReplace("OpenAI") : l10n.apiKey,
           text: $openAIKey
         )
         .textContentType(.password)
@@ -68,37 +67,35 @@ struct ModelSettingsView: View {
         .privacySensitive()
 
         HStack {
-          Button("Save key") {
+          Button(l10n.saveKey) {
             Task { await saveOpenAIKey() }
           }
           .disabled(openAIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
           if hasOpenAIKey {
             Spacer()
-            Button("Remove", role: .destructive) {
+            Button(l10n.remove, role: .destructive) {
               Task { await removeCredential(.openAIAPIKey) }
             }
           }
         }
       } header: {
-        Text("OpenAI-compatible BYOK")
+        Text(l10n.openAIBYOK)
       } footer: {
-        Text(
-          "Short voice segments are sent directly from this device to the configured endpoint. The provider may bill your own account. CourtVoice never adds the key to logs or match exports."
-        )
+        Text(l10n.openAIBYOKFooter)
       }
 
       Section {
-        TextField("Model", text: $configuration.deepgramModel)
+        TextField(l10n.model, text: $configuration.deepgramModel)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
 
-        TextField("Language code or multi", text: $configuration.deepgramLanguage)
+        TextField(l10n.languageCodeOrMulti, text: $configuration.deepgramLanguage)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
 
         SecureField(
-          hasDeepgramKey ? "API key saved — enter to replace" : "API key",
+          hasDeepgramKey ? l10n.apiKeySavedReplace("Deepgram") : l10n.apiKey,
           text: $deepgramKey
         )
         .textContentType(.password)
@@ -106,41 +103,39 @@ struct ModelSettingsView: View {
         .privacySensitive()
 
         HStack {
-          Button("Save key") {
+          Button(l10n.saveKey) {
             Task { await saveDeepgramKey() }
           }
           .disabled(deepgramKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
           if hasDeepgramKey {
             Spacer()
-            Button("Remove", role: .destructive) {
+            Button(l10n.remove, role: .destructive) {
               Task { await removeCredential(.deepgramAPIKey) }
             }
           }
         }
       } header: {
-        Text("Deepgram BYOK")
+        Text(l10n.deepgramBYOK)
       } footer: {
-        Text(
-          "While the voice agent is listening, 16 kHz mono PCM is streamed directly to Deepgram. Stopping the agent or closing the match stops capture."
-        )
+        Text(l10n.deepgramFooter)
       }
 
       Section {
-        Toggle("Stream thinking on the live board", isOn: $configuration.scoreReasoningEnabled)
+        Toggle(l10n.streamThinking, isOn: $configuration.scoreReasoningEnabled)
 
-        Picker("Model", selection: $configuration.scoreReasoningModel) {
+        Picker(l10n.model, selection: $configuration.scoreReasoningModel) {
           Text("deepseek-v4-flash").tag("deepseek-v4-flash")
           Text("deepseek-v4-pro").tag("deepseek-v4-pro")
         }
 
-        TextField("HTTPS chat endpoint", text: $configuration.scoreReasoningEndpoint)
+        TextField(l10n.httpsChatEndpoint, text: $configuration.scoreReasoningEndpoint)
           .keyboardType(.URL)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
 
         SecureField(
-          hasDeepSeekKey ? "API key saved — enter to replace" : "API key",
+          hasDeepSeekKey ? l10n.apiKeySavedReplace("DeepSeek") : l10n.apiKey,
           text: $deepseekKey
         )
         .textContentType(.password)
@@ -148,39 +143,37 @@ struct ModelSettingsView: View {
         .privacySensitive()
 
         HStack {
-          Button("Save key") {
+          Button(l10n.saveKey) {
             Task { await saveDeepSeekKey() }
           }
           .disabled(deepseekKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
           if hasDeepSeekKey {
             Spacer()
-            Button("Remove", role: .destructive) {
+            Button(l10n.remove, role: .destructive) {
               Task { await removeCredential(.deepseekAPIKey) }
             }
           }
         }
       } header: {
-        Text("DeepSeek score reasoning")
+        Text(l10n.deepSeekReasoning)
       } footer: {
-        Text(
-          "DeepSeek is the live thinking model, not the transcriber. It streams reasoning on the match screen and may propose a structured intent. Only the tennis rules engine can change the official score. The key stays in this device's Keychain."
-        )
+        Text(l10n.deepSeekFooter)
       }
 
       Section {
-        Label(
-          "Raw microphone audio is not stored by the live scoring workflow.",
-          systemImage: "lock.shield.fill"
-        )
-        .foregroundStyle(.secondary)
+        Label(l10n.liveAudioNotStored, systemImage: "lock.shield.fill")
+          .foregroundStyle(CourtVoiceTheme.textSecondary)
       }
     }
-    .navigationTitle("Speech & AI")
+    .courtVoiceListChrome()
+    .navigationTitle(l10n.speechAndAI)
     .navigationBarTitleDisplayMode(.inline)
+    .toolbarBackground(CourtVoiceTheme.canvas, for: .navigationBar)
+    .toolbarBackground(.visible, for: .navigationBar)
     .toolbar {
       ToolbarItem(placement: .confirmationAction) {
-        Button(isSaving ? "Saving…" : "Save") {
+        Button(isSaving ? l10n.saving : l10n.save) {
           Task { await saveConfiguration() }
         }
         .disabled(isSaving)
@@ -198,7 +191,7 @@ struct ModelSettingsView: View {
         set: { if $0 == false { operationMessage = nil } }
       )
     ) {
-      Button("OK", role: .cancel) { operationMessage = nil }
+      Button(l10n.ok, role: .cancel) { operationMessage = nil }
     } message: {
       Text(operationMessage ?? "")
     }
@@ -217,7 +210,7 @@ struct ModelSettingsView: View {
       try await appModel.credentialStore.save(openAIKey, for: .openAIAPIKey)
       openAIKey = ""
       await refreshCredentialStatus()
-      operationMessage = "OpenAI-compatible key saved in the device-only Keychain."
+      operationMessage = l10n.openAIKeySaved
     } catch {
       operationMessage = error.localizedDescription
     }
@@ -228,7 +221,7 @@ struct ModelSettingsView: View {
       try await appModel.credentialStore.save(deepseekKey, for: .deepseekAPIKey)
       deepseekKey = ""
       await refreshCredentialStatus()
-      operationMessage = "DeepSeek key saved in the device-only Keychain."
+      operationMessage = l10n.deepSeekKeySaved
     } catch {
       operationMessage = error.localizedDescription
     }
@@ -239,7 +232,7 @@ struct ModelSettingsView: View {
       try await appModel.credentialStore.save(deepgramKey, for: .deepgramAPIKey)
       deepgramKey = ""
       await refreshCredentialStatus()
-      operationMessage = "Deepgram key saved in the device-only Keychain."
+      operationMessage = l10n.deepgramKeySaved
     } catch {
       operationMessage = error.localizedDescription
     }
@@ -249,7 +242,7 @@ struct ModelSettingsView: View {
     do {
       try await appModel.credentialStore.remove(credential)
       await refreshCredentialStatus()
-      operationMessage = "Credential removed."
+      operationMessage = l10n.credentialRemoved
     } catch {
       operationMessage = error.localizedDescription
     }
@@ -266,13 +259,13 @@ struct ModelSettingsView: View {
       let endpoint = URL(string: configuration.openAITranscriptionEndpoint),
       endpoint.scheme?.lowercased() == "https"
     else {
-      operationMessage = "The OpenAI-compatible transcription endpoint must be a valid HTTPS URL."
+      operationMessage = l10n.invalidOpenAIEndpoint
       return false
     }
     guard configuration.autoAcceptConfidence >= 0.75,
       configuration.autoAcceptConfidence <= 0.99
     else {
-      operationMessage = "The automatic-acceptance threshold is outside the supported range."
+      operationMessage = l10n.invalidAcceptanceRange
       return false
     }
     if configuration.scoreReasoningEnabled {
@@ -280,7 +273,7 @@ struct ModelSettingsView: View {
         let reasoningEndpoint = URL(string: configuration.scoreReasoningEndpoint),
         reasoningEndpoint.scheme?.lowercased() == "https"
       else {
-        operationMessage = "The DeepSeek endpoint must be a valid HTTPS URL."
+        operationMessage = l10n.invalidDeepSeekEndpoint
         return false
       }
     }

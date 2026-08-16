@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RootView: View {
   @Environment(AppModel.self) private var appModel
+  @Environment(\.l10n) private var l10n
 
   var body: some View {
     @Bindable var appModel = appModel
@@ -18,31 +19,35 @@ struct RootView: View {
           HomeView()
             .tag(AppModel.Tab.home)
             .tabItem {
-              Label("Home", systemImage: "house.fill")
+              Label(l10n.tabHome, systemImage: "house.fill")
             }
 
           MatchHistoryView()
             .tag(AppModel.Tab.history)
             .tabItem {
-              Label("Matches", systemImage: "clock.arrow.circlepath")
+              Label(l10n.tabMatches, systemImage: "clock.arrow.circlepath")
             }
 
           SettingsView()
             .tag(AppModel.Tab.settings)
             .tabItem {
-              Label("Settings", systemImage: "gearshape.fill")
+              Label(l10n.tabSettings, systemImage: "gearshape.fill")
             }
         }
-        .tint(CourtVoiceTheme.tennisYellow)
+        .tint(CourtVoiceTheme.accent)
+        .toolbarBackground(CourtVoiceTheme.canvas, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
       }
     }
+    .environment(\.l10n, appModel.l10n)
+    .environment(\.locale, appModel.preferences.appLanguage.locale)
     .fullScreenCover(item: $appModel.activeSession) { controller in
       LiveMatchView(controller: controller) {
         Task { await appModel.closeActiveMatch() }
       }
     }
     .alert(
-      "Something went wrong",
+      l10n.somethingWentWrong,
       isPresented: Binding(
         get: { appModel.errorMessage != nil },
         set: { isPresented in
@@ -50,21 +55,23 @@ struct RootView: View {
         }
       ),
       actions: {
-        Button("OK", role: .cancel) {
+        Button(l10n.ok, role: .cancel) {
           appModel.errorMessage = nil
         }
       },
       message: {
-        Text(appModel.errorMessage ?? "Unknown error")
+        Text(appModel.errorMessage ?? l10n.unknownError)
       }
     )
   }
 }
 
 private struct LaunchLoadingView: View {
+  @Environment(\.l10n) private var l10n
+
   var body: some View {
     ZStack {
-      CourtVoiceTheme.courtGreen
+      CourtVoiceTheme.courtGradient
         .ignoresSafeArea()
 
       VStack(spacing: 18) {
@@ -75,13 +82,13 @@ private struct LaunchLoadingView: View {
 
         Text("CourtVoice")
           .font(.largeTitle.weight(.bold))
-          .foregroundStyle(.white)
+          .foregroundStyle(CourtVoiceTheme.onCourt)
 
         ProgressView()
-          .tint(.white)
+          .tint(CourtVoiceTheme.onCourt)
       }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("Loading CourtVoice")
+    .accessibilityLabel(l10n.loadingCourtVoice)
   }
 }

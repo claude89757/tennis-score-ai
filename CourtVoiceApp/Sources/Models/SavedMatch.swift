@@ -17,18 +17,22 @@ struct SavedMatch: Codable, Identifiable, Sendable {
 struct AppPreferences: Codable, Sendable {
   var hasCompletedOnboarding: Bool
   var speechConfiguration: SpeechConfiguration
+  var appLanguage: AppLanguage
 
   static let initial = AppPreferences(
     hasCompletedOnboarding: false,
-    speechConfiguration: .standard
+    speechConfiguration: .standard,
+    appLanguage: .chinese
   )
 
   init(
     hasCompletedOnboarding: Bool,
-    speechConfiguration: SpeechConfiguration = .standard
+    speechConfiguration: SpeechConfiguration = .standard,
+    appLanguage: AppLanguage = .chinese
   ) {
     self.hasCompletedOnboarding = hasCompletedOnboarding
     self.speechConfiguration = speechConfiguration
+    self.appLanguage = appLanguage
   }
 
   init(from decoder: any Decoder) throws {
@@ -43,5 +47,10 @@ struct AppPreferences: Codable, Sendable {
         SpeechConfiguration.self,
         forKey: .speechConfiguration
       ) ?? .standard
+    appLanguage =
+      try container.decodeIfPresent(
+        AppLanguage.self,
+        forKey: .appLanguage
+      ) ?? .chinese
   }
 }

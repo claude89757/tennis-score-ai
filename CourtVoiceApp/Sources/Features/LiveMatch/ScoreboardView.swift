@@ -3,40 +3,41 @@ import SwiftUI
 
 struct ScoreboardView: View {
   let state: MatchState
+  @Environment(\.l10n) private var l10n
 
   var body: some View {
     VStack(spacing: 0) {
       header
-      Divider().overlay(.white.opacity(0.18))
+      Divider().overlay(CourtVoiceTheme.courtPanelStroke)
       teamRow(side: .home)
-      Divider().overlay(.white.opacity(0.18))
+      Divider().overlay(CourtVoiceTheme.courtPanelStroke)
       teamRow(side: .away)
     }
     .background(CourtVoiceTheme.ink.opacity(0.96), in: RoundedRectangle(cornerRadius: 28))
     .overlay {
       RoundedRectangle(cornerRadius: 28)
-        .stroke(.white.opacity(0.12), lineWidth: 1)
+        .stroke(CourtVoiceTheme.courtPanelStroke, lineWidth: 1)
     }
     .accessibilityElement(children: .contain)
-    .accessibilityLabel("Tennis scoreboard")
+    .accessibilityLabel(l10n.tennisScoreboard)
     .accessibilityIdentifier("live.scoreboard")
   }
 
   private var header: some View {
     HStack(spacing: 8) {
-      Text("PLAYER")
+      Text(l10n.playerColumn)
         .frame(maxWidth: .infinity, alignment: .leading)
       ForEach(Array(state.completedSets.indices), id: \.self) { index in
         Text("S\(index + 1)")
           .frame(width: 42)
       }
-      Text("GAME")
+      Text(l10n.gameColumn)
         .frame(width: 58)
-      Text(state.currentGame.isTiebreak ? "TB" : "POINT")
+      Text(state.currentGame.isTiebreak ? "TB" : l10n.pointColumn)
         .frame(width: 74)
     }
     .font(.caption2.weight(.bold))
-    .foregroundStyle(.white.opacity(0.58))
+    .foregroundStyle(CourtVoiceTheme.onCourtFaint)
     .padding(.horizontal, 20)
     .padding(.vertical, 13)
   }
@@ -47,9 +48,9 @@ struct ScoreboardView: View {
         Image(systemName: state.server == side ? "circle.fill" : "circle")
           .font(.caption)
           .foregroundStyle(
-            state.server == side ? CourtVoiceTheme.tennisYellow : .white.opacity(0.22)
+            state.server == side ? CourtVoiceTheme.tennisYellow : CourtVoiceTheme.onCourtSubtle
           )
-          .accessibilityLabel(state.server == side ? "Serving" : "Receiving")
+          .accessibilityLabel(state.server == side ? l10n.serving : l10n.receiving)
 
         Text(state.teams[side].displayName)
           .lineLimit(1)
@@ -70,7 +71,7 @@ struct ScoreboardView: View {
         .frame(width: 74)
     }
     .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
-    .foregroundStyle(.white)
+    .foregroundStyle(CourtVoiceTheme.onCourt)
     .padding(.horizontal, 20)
     .padding(.vertical, 22)
     .accessibilityElement(children: .combine)
@@ -91,8 +92,11 @@ struct ScoreboardView: View {
   }
 
   private func accessibilityScore(for side: TeamSide) -> String {
-    let team = state.teams[side].displayName
-    let server = state.server == side ? "serving" : "receiving"
-    return "\(team), \(server), \(state.currentGames[side]) games, \(pointText(for: side)) points"
+    l10n.accessibilityScore(
+      team: state.teams[side].displayName,
+      isServing: state.server == side,
+      games: state.currentGames[side],
+      points: pointText(for: side)
+    )
   }
 }

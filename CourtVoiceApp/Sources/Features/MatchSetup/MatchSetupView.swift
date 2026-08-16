@@ -3,49 +3,51 @@ import SwiftUI
 
 struct MatchSetupView: View {
   @Environment(\.dismiss) private var dismiss
+  @Environment(\.l10n) private var l10n
 
   let onStart: (MatchConfigurationDraft) -> Void
 
   @State private var draft = MatchConfigurationDraft()
+  @State private var didApplyLanguage = false
 
   var body: some View {
     NavigationStack {
       Form {
-        Section("Players") {
-          TextField("Player or team 1", text: $draft.homeName)
+        Section(l10n.players) {
+          TextField(l10n.playerOrTeam1, text: $draft.homeName)
             .textInputAutocapitalization(.words)
-          TextField("Player or team 2", text: $draft.awayName)
+          TextField(l10n.playerOrTeam2, text: $draft.awayName)
             .textInputAutocapitalization(.words)
 
-          Picker("Discipline", selection: $draft.discipline) {
-            Text("Singles").tag(MatchDiscipline.singles)
-            Text("Doubles").tag(MatchDiscipline.doubles)
+          Picker(l10n.discipline, selection: $draft.discipline) {
+            Text(l10n.singles).tag(MatchDiscipline.singles)
+            Text(l10n.doubles).tag(MatchDiscipline.doubles)
           }
           .pickerStyle(.segmented)
 
           if draft.discipline == .doubles {
-            TextField("Team 1 members, comma-separated", text: $draft.homeMembers)
-            TextField("Team 2 members, comma-separated", text: $draft.awayMembers)
+            TextField(l10n.team1Members, text: $draft.homeMembers)
+            TextField(l10n.team2Members, text: $draft.awayMembers)
           }
         }
 
-        Section("Match format") {
-          Picker("Sets", selection: $draft.bestOfSets) {
-            Text("1 set").tag(1)
-            Text("Best of 3").tag(3)
-            Text("Best of 5").tag(5)
+        Section(l10n.matchFormat) {
+          Picker(l10n.sets, selection: $draft.bestOfSets) {
+            Text(l10n.oneSet).tag(1)
+            Text(l10n.bestOf3).tag(3)
+            Text(l10n.bestOf5).tag(5)
           }
 
-          Picker("Game scoring", selection: $draft.gameScoring) {
-            Text("Advantage").tag(GameScoringRule.advantage)
-            Text("No-Ad").tag(GameScoringRule.noAd)
+          Picker(l10n.gameScoring, selection: $draft.gameScoring) {
+            Text(l10n.advantage).tag(GameScoringRule.advantage)
+            Text(l10n.noAd).tag(GameScoringRule.noAd)
           }
 
-          Toggle("10-point match tiebreak in deciding set", isOn: $draft.usesDecidingMatchTiebreak)
+          Toggle(l10n.decidingTiebreak, isOn: $draft.usesDecidingMatchTiebreak)
         }
 
-        Section("First server") {
-          Picker("Server", selection: $draft.initialServer) {
+        Section(l10n.firstServer) {
+          Picker(l10n.server, selection: $draft.initialServer) {
             Text(draft.homeName).tag(TeamSide.home)
             Text(draft.awayName).tag(TeamSide.away)
           }
@@ -53,22 +55,22 @@ struct MatchSetupView: View {
         }
 
         Section {
-          Label(
-            "After you start, the voice agent drives scoring. Only the tennis rules engine can change the official score.",
-            systemImage: "checkmark.shield"
-          )
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+          Label(l10n.matchSetupHint, systemImage: "checkmark.shield")
+            .font(.footnote)
+            .foregroundStyle(CourtVoiceTheme.textSecondary)
         }
       }
-      .navigationTitle("New match")
+      .courtVoiceListChrome()
+      .navigationTitle(l10n.newMatch)
       .navigationBarTitleDisplayMode(.inline)
+      .toolbarBackground(CourtVoiceTheme.canvas, for: .navigationBar)
+      .toolbarBackground(.visible, for: .navigationBar)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button(l10n.cancel) { dismiss() }
         }
         ToolbarItem(placement: .confirmationAction) {
-          Button("Start") {
+          Button(l10n.start) {
             onStart(draft)
             dismiss()
           }
@@ -76,6 +78,11 @@ struct MatchSetupView: View {
           .fontWeight(.semibold)
           .accessibilityIdentifier("matchSetup.start")
         }
+      }
+      .onAppear {
+        guard didApplyLanguage == false else { return }
+        draft = .standard(language: l10n.language)
+        didApplyLanguage = true
       }
     }
   }

@@ -25,11 +25,13 @@ targets:
       path: CourtVoiceApp/Info.plist
       properties:
         CFBundleDisplayName: CourtVoice
+        CFBundleDevelopmentRegion: zh-Hans
+        CFBundleLocalizations: [zh-Hans, en]
         ITSAppUsesNonExemptEncryption: false
         LSRequiresIPhoneOS: true
-        NSMicrophoneUsageDescription: CourtVoice listens for score announcements while a match is active so it can update the scoreboard.
-        NSSpeechRecognitionUsageDescription: CourtVoice converts spoken tennis scores into text for rules-checked scoring.
-        NSPhotoLibraryUsageDescription: CourtVoice can import a match video that you explicitly select for score analysis.
+        NSMicrophoneUsageDescription: CourtVoice 仅在比赛进行时聆听报分，用于更新记分牌。
+        NSSpeechRecognitionUsageDescription: CourtVoice 将场边报分转成文字，再交给规则引擎记分。
+        NSPhotoLibraryUsageDescription: CourtVoice 可以导入你明确选择的比赛视频，用于比分分析。
         UIRequiredDeviceCapabilities: [arm64, microphone]
         UILaunchScreen:
           UIColorName: LaunchBackground
@@ -52,6 +54,7 @@ targets:
         PRODUCT_NAME: CourtVoice
         PRODUCT_MODULE_NAME: CourtVoiceApp
         PRODUCT_BUNDLE_IDENTIFIER: com.claude89757.courtvoice
+        DEVELOPMENT_LANGUAGE: zh-Hans
         SWIFT_VERSION: 6.0
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO

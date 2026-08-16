@@ -1,0 +1,17 @@
+strict: true
+included:
+  - Sources
+  - Tests
+  - ios
+excluded:
+  - .build
+  - DerivedData
+line_length:
+  warning: 120
+  error: 160
+identifier_name:
+  min_length: 2
+type_body_length:
+  warning: 400
+file_length:
+  warning: 700

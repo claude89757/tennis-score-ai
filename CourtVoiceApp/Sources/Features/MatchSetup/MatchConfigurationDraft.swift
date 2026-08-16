@@ -2,8 +2,8 @@ import CourtVoiceCore
 import Foundation
 
 struct MatchConfigurationDraft: Equatable {
-  var homeName = "Player 1"
-  var awayName = "Player 2"
+  var homeName = "选手 1"
+  var awayName = "选手 2"
   var homeMembers = ""
   var awayMembers = ""
   var discipline: MatchDiscipline = .singles
@@ -11,6 +11,14 @@ struct MatchConfigurationDraft: Equatable {
   var gameScoring: GameScoringRule = .advantage
   var usesDecidingMatchTiebreak = false
   var initialServer: TeamSide = .home
+
+  static func standard(language: AppLanguage) -> MatchConfigurationDraft {
+    let copy = L10n(language: language)
+    var draft = MatchConfigurationDraft()
+    draft.homeName = copy.defaultPlayer1
+    draft.awayName = copy.defaultPlayer2
+    return draft
+  }
 
   var canStart: Bool {
     homeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false

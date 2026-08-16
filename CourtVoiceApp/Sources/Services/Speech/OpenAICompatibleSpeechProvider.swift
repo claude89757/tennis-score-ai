@@ -14,7 +14,7 @@ final class OpenAICompatibleSpeechProvider: LiveSpeechProvider {
   private var processingTask: Task<Void, Never>?
   private var onTranscription: (@MainActor (SpeechTranscription) -> Void)?
   private var onStateChange: (@MainActor (SpeechSessionState) -> Void)?
-  private var locale = Locale(identifier: "en-US")
+  private var locale = Locale(identifier: "zh-CN")
   private var isRunning = false
 
   init(apiKey: String, endpoint: URL, model: String) {

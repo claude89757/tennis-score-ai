@@ -21,7 +21,8 @@ final class MatchSessionController: Identifiable {
   private let reasoningClientOverride: (any ScoreReasoningClient)?
 
   var lastErrorMessage: String?
-  var lastActionDescription = "Match ready"
+  var lastAction: LiveScoreAction = .matchReady
+  var lastActionDescription: String { lastAction.description }
   var speechState: SpeechSessionState = .idle
   var lastTranscript = ""
   var lastTranscriptIsFinal = false
@@ -74,7 +75,7 @@ final class MatchSessionController: Identifiable {
     self.speechConfiguration = speechConfiguration
     self.credentialStore = credentialStore
     reasoningClientOverride = reasoningClient
-    lastActionDescription = "Match restored"
+    lastAction = .matchRestored
   }
 
   func startListening() async {
@@ -261,7 +262,7 @@ final class MatchSessionController: Identifiable {
       && combinedConfidence >= speechConfiguration.autoAcceptConfidence
 
     if isTrusted == false {
-      lastActionDescription = "Held: the agent needs a clearer call before changing the score."
+      lastAction = .heldUnclear
       return false
     }
 
@@ -283,19 +284,19 @@ final class MatchSessionController: Identifiable {
           evidence: evidence(for: transcription),
           idempotencyKey:
             "speech-\(transcription.providerID)-\(transcription.id.uuidString)-\(offset)",
-          successDescription: "Agent scored: \(transcription.text)"
+          successAction: .agentScored(transcription.text)
         )
       }
       lastCommittedSpeechID = transcription.id
       return true
     case .alreadyCurrent:
-      lastActionDescription = "Heard the current score; no change"
+      lastAction = .heardCurrent
       return true
     case .confirmationRequired(let reason):
-      lastActionDescription = "Held: \(reason)"
+      lastAction = .held(reason)
       return false
     case .ignored(let reason):
-      lastActionDescription = reason
+      lastAction = .ignored(reason)
       return candidate.intent != .unknown
     }
   }
@@ -412,7 +413,7 @@ final class MatchSessionController: Identifiable {
       kind,
       evidence: evidence(for: transcription),
       idempotencyKey: "speech-\(transcription.providerID)-\(transcription.id.uuidString)",
-      successDescription: "Agent scored: \(transcription.text)"
+      successAction: .agentScored(transcription.text)
     )
   }
 
@@ -428,7 +429,7 @@ final class MatchSessionController: Identifiable {
   private func performUndo(evidence: ScoreEvidence) async {
     do {
       _ = try timeline.revokeLastMutableEvent(evidence: evidence)
-      lastActionDescription = "Last scoring action undone"
+      lastAction = .undone
       try await persist()
     } catch {
       lastErrorMessage = error.localizedDescription
@@ -439,7 +440,7 @@ final class MatchSessionController: Identifiable {
     _ kind: MatchEventKind,
     evidence: ScoreEvidence,
     idempotencyKey: String? = nil,
-    successDescription: String
+    successAction: LiveScoreAction
   ) async {
     do {
       try timeline.append(
@@ -449,7 +450,7 @@ final class MatchSessionController: Identifiable {
           idempotencyKey: idempotencyKey
         )
       )
-      lastActionDescription = successDescription
+      lastAction = successAction
       try await persist()
       if state.isComplete {
         await stopListening()

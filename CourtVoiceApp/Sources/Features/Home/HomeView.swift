@@ -3,6 +3,7 @@ import SwiftUI
 
 struct HomeView: View {
   @Environment(AppModel.self) private var appModel
+  @Environment(\.l10n) private var l10n
   @State private var isShowingMatchSetup = false
   @State private var isShowingMediaAnalysis = false
 
@@ -15,8 +16,10 @@ struct HomeView: View {
 
           if let recentMatch = appModel.matches.first {
             VStack(alignment: .leading, spacing: 12) {
-              Text("Continue")
+              Text(l10n.continueAction)
                 .font(.title2.bold())
+                .foregroundStyle(CourtVoiceTheme.textPrimary)
+                .accessibilityIdentifier("home.continue")
 
               Button {
                 appModel.resume(recentMatch)
@@ -31,12 +34,14 @@ struct HomeView: View {
         }
         .padding()
       }
-      .background(CourtVoiceTheme.ivory.ignoresSafeArea())
+      .courtVoiceCanvas()
       .navigationTitle("CourtVoice")
+      .toolbarBackground(CourtVoiceTheme.canvas, for: .navigationBar)
+      .toolbarBackground(.visible, for: .navigationBar)
       .toolbar {
         ToolbarItem(placement: .topBarTrailing) {
           Image(systemName: "tennisball.fill")
-            .foregroundStyle(CourtVoiceTheme.courtGreen)
+            .foregroundStyle(CourtVoiceTheme.accent)
             .accessibilityHidden(true)
         }
       }
@@ -57,21 +62,19 @@ struct HomeView: View {
   private var heroCard: some View {
     VStack(alignment: .leading, spacing: 24) {
       VStack(alignment: .leading, spacing: 8) {
-        Text("Score without breaking your rhythm")
+        Text(l10n.homeHeroTitle)
           .font(.system(.largeTitle, design: .rounded, weight: .bold))
-          .foregroundStyle(.white)
+          .foregroundStyle(CourtVoiceTheme.onHero)
 
-        Text(
-          "Start a match, then let the voice agent and tennis rules engine keep score. Watch the live board, transcript, and model thinking."
-        )
-        .font(.title3)
-        .foregroundStyle(.white.opacity(0.78))
+        Text(l10n.homeHeroDetail)
+          .font(.title3)
+          .foregroundStyle(CourtVoiceTheme.onHeroMuted)
       }
 
       Button {
         isShowingMatchSetup = true
       } label: {
-        Label("Start match", systemImage: "play.fill")
+        Label(l10n.startMatch, systemImage: "play.fill")
           .font(.headline)
           .frame(maxWidth: .infinity)
           .frame(minHeight: 56)
@@ -84,11 +87,7 @@ struct HomeView: View {
     }
     .padding(24)
     .background(
-      LinearGradient(
-        colors: [CourtVoiceTheme.courtGreenLight, CourtVoiceTheme.courtGreen],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-      ),
+      CourtVoiceTheme.heroGradient,
       in: RoundedRectangle(cornerRadius: 30)
     )
     .shadow(color: CourtVoiceTheme.courtGreen.opacity(0.18), radius: 24, y: 12)
@@ -101,19 +100,19 @@ struct HomeView: View {
       HStack(spacing: 14) {
         Image(systemName: "film.stack.fill")
           .font(.title2)
-          .foregroundStyle(CourtVoiceTheme.courtGreen)
+          .foregroundStyle(CourtVoiceTheme.accent)
         VStack(alignment: .leading, spacing: 4) {
-          Text("Analyze a recorded match")
+          Text(l10n.analyzeRecordedMatch)
             .font(.headline)
-            .foregroundStyle(.primary)
-          Text("Import video or audio and build a timestamped, rules-checked score draft.")
+            .foregroundStyle(CourtVoiceTheme.textPrimary)
+          Text(l10n.analyzeRecordedMatchDetail)
             .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(CourtVoiceTheme.textSecondary)
             .multilineTextAlignment(.leading)
         }
         Spacer()
         Image(systemName: "chevron.right")
-          .foregroundStyle(.secondary)
+          .foregroundStyle(CourtVoiceTheme.textTertiary)
       }
       .courtVoiceCard()
     }
@@ -125,16 +124,15 @@ struct HomeView: View {
     HStack(alignment: .top, spacing: 14) {
       Image(systemName: "lock.shield.fill")
         .font(.title2)
-        .foregroundStyle(CourtVoiceTheme.courtGreen)
+        .foregroundStyle(CourtVoiceTheme.accent)
 
       VStack(alignment: .leading, spacing: 5) {
-        Text("Private by default")
+        Text(l10n.privateByDefault)
           .font(.headline)
-        Text(
-          "Match history stays on this device. Raw microphone audio is not stored by the scoring workflow."
-        )
-        .font(.subheadline)
-        .foregroundStyle(.secondary)
+          .foregroundStyle(CourtVoiceTheme.textPrimary)
+        Text(l10n.privateByDefaultDetail)
+          .font(.subheadline)
+          .foregroundStyle(CourtVoiceTheme.textSecondary)
       }
     }
     .courtVoiceCard()
@@ -143,6 +141,7 @@ struct HomeView: View {
 
 struct MatchSummaryCard: View {
   let savedMatch: SavedMatch
+  @Environment(\.l10n) private var l10n
 
   var body: some View {
     let state = savedMatch.state
@@ -154,6 +153,7 @@ struct MatchSummaryCard: View {
           Text(state.teams.away.displayName)
         }
         .font(.headline)
+        .foregroundStyle(CourtVoiceTheme.textPrimary)
 
         Spacer()
 
@@ -162,25 +162,26 @@ struct MatchSummaryCard: View {
           Text("\(state.setsWon.away)")
         }
         .font(.title3.monospacedDigit().bold())
+        .foregroundStyle(CourtVoiceTheme.textPrimary)
       }
 
       HStack {
-        Label(matchStatusText(state.status), systemImage: matchStatusIcon(state.status))
+        Label(statusText(state.status), systemImage: matchStatusIcon(state.status))
         Spacer()
         Text(savedMatch.updatedAt, style: .relative)
       }
       .font(.caption)
-      .foregroundStyle(.secondary)
+      .foregroundStyle(CourtVoiceTheme.textSecondary)
     }
     .courtVoiceCard()
   }
 
-  private func matchStatusText(_ status: MatchStatus) -> String {
+  private func statusText(_ status: MatchStatus) -> String {
     switch status {
-    case .notStarted: "Not started"
-    case .inProgress: "In progress"
-    case .paused: "Paused"
-    case .completed: "Completed"
+    case .notStarted: l10n.matchStatusNotStarted
+    case .inProgress: l10n.matchStatusInProgress
+    case .paused: l10n.matchStatusPaused
+    case .completed: l10n.matchStatusCompleted
     }
   }
 

@@ -24,7 +24,7 @@ final class PrimaryFlowUITests: XCTestCase {
     app.launchArguments = ["-ui-testing", "-ui-testing-reset"]
     app.launch()
 
-    XCTAssertTrue(app.staticTexts["Call the score naturally"].waitForExistence(timeout: 8))
+    XCTAssertTrue(app.staticTexts["onboarding.title"].waitForExistence(timeout: 8))
     capture(app, name: "01-onboarding")
 
     app.buttons["onboarding.skip"].tap()
@@ -63,27 +63,24 @@ final class PrimaryFlowUITests: XCTestCase {
     app.launch()
 
     XCTAssertTrue(app.buttons["home.startMatch"].waitForExistence(timeout: 8))
-    XCTAssertTrue(app.staticTexts["Continue"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["home.continue"].waitForExistence(timeout: 5))
     capture(app, name: "07-home-after-relaunch")
 
-    app.tabBars.buttons["Matches"].tap()
-    XCTAssertTrue(app.staticTexts["Player 1"].waitForExistence(timeout: 5))
+    app.tabBars.buttons["比赛"].tap()
+    XCTAssertTrue(app.staticTexts["history.homeName"].waitForExistence(timeout: 5))
     capture(app, name: "08-match-history")
 
-    app.tabBars.buttons["Settings"].tap()
-    XCTAssertTrue(app.staticTexts["Speech & AI models"].waitForExistence(timeout: 5))
+    app.tabBars.buttons["设置"].tap()
+    XCTAssertTrue(app.buttons["settings.speechModels"].waitForExistence(timeout: 5))
     capture(app, name: "09-settings")
 
-    let paywallEntry = app.buttons["Upgrade to CourtVoice Pro"].exists
-      ? app.buttons["Upgrade to CourtVoice Pro"]
-      : app.buttons["CourtVoice Pro active"]
-    paywallEntry.tap()
+    app.buttons["settings.paywall"].tap()
     XCTAssertTrue(app.navigationBars["CourtVoice Pro"].waitForExistence(timeout: 5))
     capture(app, name: "10-paywall")
-    app.buttons["Done"].tap()
+    app.buttons["paywall.done"].tap()
 
-    app.buttons["Speech & AI models"].tap()
-    XCTAssertTrue(app.navigationBars["Speech & AI"].waitForExistence(timeout: 5))
+    app.buttons["settings.speechModels"].tap()
+    XCTAssertTrue(app.navigationBars["语音与 AI"].waitForExistence(timeout: 5))
     capture(app, name: "11-model-settings")
   }
 
@@ -94,10 +91,10 @@ final class PrimaryFlowUITests: XCTestCase {
 
     XCTAssertTrue(app.buttons["home.analyzeMedia"].waitForExistence(timeout: 8))
     app.buttons["home.analyzeMedia"].tap()
-    XCTAssertTrue(app.navigationBars["Analyze match media"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.navigationBars["分析比赛录像"].waitForExistence(timeout: 5))
     capture(app, name: "12-media-analysis")
-    app.buttons["Close"].tap()
-    XCTAssertTrue(app.navigationBars["Analyze match media"].waitForNonExistence(timeout: 5))
+    app.buttons["media.close"].tap()
+    XCTAssertTrue(app.navigationBars["分析比赛录像"].waitForNonExistence(timeout: 5))
     XCTAssertTrue(app.buttons["home.startMatch"].waitForExistence(timeout: 8))
     XCTAssertTrue(app.buttons["home.startMatch"].isHittable)
     capture(app, name: "13-home-after-media")
@@ -174,10 +171,15 @@ final class PrimaryFlowUITests: XCTestCase {
           || label.contains("unavailable")
           || label.contains("Interrupted")
           || label.contains("Processing")
+          || label.contains("正在听")
+          || label.contains("正在准备")
+          || label.contains("不可用")
+          || label.contains("已中断")
+          || label.contains("正在处理")
         {
           return
         }
-        if label.contains("Requesting") {
+        if label.contains("Requesting") || label.contains("请求权限") {
           tapLikelySystemAllowButtons()
         }
       }
@@ -233,9 +235,11 @@ final class PrimaryFlowUITests: XCTestCase {
   }
 
   private func dismissScoringErrorIfPresent(in app: XCUIApplication) {
-    let alert = app.alerts["Scoring error"]
+    let alert = app.alerts["记分出错"].exists ? app.alerts["记分出错"] : app.alerts["Scoring error"]
     guard alert.exists else { return }
-    if alert.buttons["OK"].exists {
+    if alert.buttons["好"].exists {
+      alert.buttons["好"].tap()
+    } else if alert.buttons["OK"].exists {
       alert.buttons["OK"].tap()
     }
   }

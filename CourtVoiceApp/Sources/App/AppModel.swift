@@ -82,8 +82,18 @@ final class AppModel {
     await savePreferences()
   }
 
+  var l10n: L10n {
+    L10n(language: preferences.appLanguage)
+  }
+
   func updateSpeechConfiguration(_ configuration: SpeechConfiguration) async {
     preferences.speechConfiguration = configuration
+    await savePreferences()
+  }
+
+  func updateAppLanguage(_ language: AppLanguage) async {
+    preferences.appLanguage = language
+    preferences.speechConfiguration.localeIdentifier = language.speechLocaleIdentifier
     await savePreferences()
   }
 

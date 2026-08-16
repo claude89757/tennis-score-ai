@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>zh-Hans</string>
 	<key>CFBundleDisplayName</key>
 	<string>CourtVoice</string>
 	<key>CFBundleExecutable</key>
@@ -12,6 +12,11 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>zh-Hans</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
 	<key>CFBundlePackageType</key>
@@ -25,11 +30,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>CourtVoice listens for score announcements while a match is active so it can update the scoreboard.</string>
+	<string>CourtVoice 仅在比赛进行时聆听报分，用于更新记分牌。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>CourtVoice can import a match video that you explicitly select for score analysis.</string>
+	<string>CourtVoice 可以导入你明确选择的比赛视频，用于比分分析。</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>CourtVoice converts spoken tennis scores into text for rules-checked scoring.</string>
+	<string>CourtVoice 将场边报分转成文字，再交给规则引擎记分。</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

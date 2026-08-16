@@ -10,7 +10,7 @@ struct OnboardingView: View {
       icon: "waveform.and.mic",
       title: "Call the score naturally",
       detail:
-        "CourtVoice is designed to listen only while a match is active. Manual scoring always remains available."
+        "Start a match, then let the voice agent keep score. CourtVoice listens only while the match is active."
     ),
     OnboardingPage(
       icon: "checkmark.shield.fill",

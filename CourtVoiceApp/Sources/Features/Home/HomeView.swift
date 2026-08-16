@@ -62,7 +62,7 @@ struct HomeView: View {
           .foregroundStyle(.white)
 
         Text(
-          "Start with reliable manual scoring. Add local or cloud speech recognition whenever it helps your court setup."
+          "Start a match, then let the voice agent and tennis rules engine keep score. Watch the live board, transcript, and model thinking."
         )
         .font(.title3)
         .foregroundStyle(.white.opacity(0.78))
@@ -131,7 +131,7 @@ struct HomeView: View {
         Text("Private by default")
           .font(.headline)
         Text(
-          "Manual matches stay on this device. Raw microphone audio is not stored by the scoring workflow."
+          "Match history stays on this device. Raw microphone audio is not stored by the scoring workflow."
         )
         .font(.subheadline)
         .foregroundStyle(.secondary)

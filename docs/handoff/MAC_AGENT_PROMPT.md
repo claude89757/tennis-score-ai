@@ -6,7 +6,7 @@ You are completing the commercial iOS release engineering for `claude89757/tenni
 2. Read `HANDOFF.md`, `docs/handoff/LINUX_COMPLETION.md` and `docs/handoff/MAC_AGENT_HANDOFF.md` before editing.
 3. Create `agent/macos-commercial-finalization`, then run `./scripts/macos-acceptance.sh` and fix every Xcode/Swift 6 failure until it passes.
 4. Preserve deterministic authority: speech/LLM output may propose an intent, but only the validated tennis rules engine may change official score state.
-5. Validate onboarding, manual scoring, correction, persistence, speech, BYOK, media import, StoreKit, accessibility and adaptive layouts on Simulator.
+5. Validate onboarding, AI-native live scoring (no manual award/correction), persistence, speech, BYOK, media import, StoreKit, accessibility and adaptive layouts on Simulator.
 6. Perform physical-device microphone, interruptions, Bluetooth, outdoor noise and external-display tests.
 7. Benchmark the private full-match video without committing it or any production credentials.
 8. Capture focused performance and memory evidence, fix app-owned leaks, and repeat the capture.

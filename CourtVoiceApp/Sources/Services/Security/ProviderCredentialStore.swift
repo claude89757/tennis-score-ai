@@ -4,6 +4,7 @@ import Security
 enum ProviderCredential: String, Sendable {
   case openAIAPIKey = "provider.openai.api-key"
   case deepgramAPIKey = "provider.deepgram.api-key"
+  case deepseekAPIKey = "provider.deepseek.api-key"
 }
 
 actor ProviderCredentialStore {

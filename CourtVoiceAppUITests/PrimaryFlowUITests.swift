@@ -19,7 +19,7 @@ final class PrimaryFlowUITests: XCTestCase {
     XCUIDevice.shared.orientation = .portrait
   }
 
-  func testOnboardingManualScoringPersistenceAndSettings() throws {
+  func testOnboardingLiveMatchPersistenceAndSettings() throws {
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-ui-testing-reset"]
     app.launch()
@@ -37,28 +37,21 @@ final class PrimaryFlowUITests: XCTestCase {
     capture(app, name: "03-match-setup")
     app.buttons["matchSetup.start"].tap()
 
-    XCTAssertTrue(app.buttons["live.award.home"].waitForExistence(timeout: 8))
+    XCTAssertTrue(app.otherElements["live.scoreboard"].waitForExistence(timeout: 8))
+    XCTAssertTrue(app.staticTexts["live.speechState"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["live.listen"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["live.transcript"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.staticTexts["live.reasoning"].waitForExistence(timeout: 5))
+    XCTAssertFalse(app.buttons["live.award.home"].exists)
+    XCTAssertFalse(app.buttons["live.award.away"].exists)
+    XCTAssertFalse(app.buttons["live.undo"].exists)
+    XCTAssertFalse(app.buttons["live.correct"].exists)
     capture(app, name: "04-live-match")
-
-    for _ in 0..<3 {
-      app.buttons["live.award.home"].tap()
-      app.buttons["live.award.away"].tap()
-    }
-    let reachedDeuce =
-      app.staticTexts["Deuce"].waitForExistence(timeout: 2)
-      || app.staticTexts["平分"].exists
-      || app.staticTexts["40"].exists
-    XCTAssertTrue(reachedDeuce, "Manual scoring should reach deuce after three points each.")
-
-    app.buttons["live.award.home"].tap()
-    app.buttons["live.undo"].tap()
-    app.buttons["live.correct"].tap()
-    XCTAssertTrue(app.navigationBars["Correct score"].waitForExistence(timeout: 5))
-    capture(app, name: "05-score-correction")
-    app.buttons["Cancel"].tap()
+    capture(app, name: "05-live-agent")
 
     XCUIDevice.shared.orientation = .landscapeLeft
-    XCTAssertTrue(app.buttons["live.award.home"].waitForExistence(timeout: 3))
+    XCTAssertTrue(app.buttons["live.listen"].waitForExistence(timeout: 3))
+    XCTAssertTrue(app.otherElements["live.scoreboard"].waitForExistence(timeout: 3))
     capture(app, name: "06-live-landscape")
     XCUIDevice.shared.orientation = .portrait
 
@@ -94,7 +87,7 @@ final class PrimaryFlowUITests: XCTestCase {
     capture(app, name: "11-model-settings")
   }
 
-  func testMediaImportSurfaceStaysReachableWithoutDisablingManualScoring() throws {
+  func testMediaImportSurfaceStaysReachable() throws {
     let app = XCUIApplication()
     app.launchArguments = ["-ui-testing", "-ui-testing-reset", "-ui-testing-skip-onboarding"]
     app.launch()
@@ -110,19 +103,140 @@ final class PrimaryFlowUITests: XCTestCase {
     capture(app, name: "13-home-after-media")
   }
 
+  func testDeviceVoicePermissionAndAgentControls() throws {
+    #if targetEnvironment(simulator)
+      throw XCTSkip("Physical-device audio smoke requires a real iPhone or iPad.")
+    #else
+      let app = XCUIApplication()
+      app.launchArguments = ["-ui-testing", "-ui-testing-reset", "-ui-testing-skip-onboarding"]
+      addUIInterruptionMonitor(withDescription: "System permission prompts") { alert in
+        MainActor.assumeIsolated {
+          self.tapAllowIfPresent(in: alert)
+        }
+      }
+      app.launch()
+
+      XCTAssertTrue(app.buttons["home.startMatch"].waitForExistence(timeout: 8))
+      app.buttons["home.startMatch"].tap()
+      XCTAssertTrue(app.buttons["matchSetup.start"].waitForExistence(timeout: 5))
+      app.buttons["matchSetup.start"].tap()
+      XCTAssertTrue(app.buttons["live.listen"].waitForExistence(timeout: 8))
+      capture(app, name: "14-device-before-listen")
+
+      app.buttons["live.listen"].tap()
+      resolveVoicePermissionAndStart(in: app)
+
+      let speechState = app.staticTexts["live.speechState"]
+      XCTAssertTrue(
+        speechState.waitForExistence(timeout: 8),
+        "Listening state must remain visible after the permission flow."
+      )
+      XCTAssertFalse(speechState.label.isEmpty)
+      capture(app, name: "15-device-after-listen")
+
+      dismissScoringErrorIfPresent(in: app)
+      XCTAssertTrue(app.buttons["live.listen"].waitForExistence(timeout: 5))
+      XCTAssertTrue(app.buttons["live.listen"].isHittable)
+      XCTAssertTrue(app.otherElements["live.scoreboard"].waitForExistence(timeout: 5))
+      XCTAssertFalse(app.buttons["live.award.home"].exists)
+      XCTAssertFalse(app.buttons["live.undo"].exists)
+      capture(app, name: "16-device-agent-after-voice")
+
+      XCUIDevice.shared.press(.home)
+      Thread.sleep(forTimeInterval: 1.5)
+      app.activate()
+      dismissScoringErrorIfPresent(in: app)
+      XCTAssertTrue(app.buttons["live.listen"].waitForExistence(timeout: 8))
+      XCTAssertTrue(app.staticTexts["live.speechState"].waitForExistence(timeout: 5))
+      XCTAssertTrue(app.otherElements["live.scoreboard"].waitForExistence(timeout: 5))
+      capture(app, name: "17-device-after-background")
+    #endif
+  }
+
+  private func resolveVoicePermissionAndStart(in app: XCUIApplication) {
+    let speechState = app.staticTexts["live.speechState"]
+    let deadline = Date().addingTimeInterval(20)
+
+    while Date() < deadline {
+      guard app.state == .runningForeground else {
+        Thread.sleep(forTimeInterval: 0.4)
+        continue
+      }
+
+      dismissScoringErrorIfPresent(in: app)
+      tapAllowIfPresent(in: XCUIApplication(bundleIdentifier: "com.apple.springboard"))
+      tapAllowIfPresent(in: app)
+
+      if speechState.exists {
+        let label = speechState.label
+        if label.contains("Listening")
+          || label.contains("Preparing")
+          || label.contains("unavailable")
+          || label.contains("Interrupted")
+          || label.contains("Processing")
+        {
+          return
+        }
+        if label.contains("Requesting") {
+          tapLikelySystemAllowButtons()
+        }
+      }
+
+      Thread.sleep(forTimeInterval: 0.6)
+    }
+  }
+
   private func capture(_ app: XCUIApplication, name: String) {
-    let screenshot = app.screenshot()
+    let screenshot = XCUIScreen.main.screenshot()
     let attachment = XCTAttachment(screenshot: screenshot)
     attachment.name = name
     attachment.lifetime = .keepAlways
     add(attachment)
 
     guard let screenshotDirectory else { return }
-    let url = screenshotDirectory.appendingPathComponent("\(name).png")
     do {
-      try screenshot.pngRepresentation.write(to: url)
+      try FileManager.default.createDirectory(
+        at: screenshotDirectory,
+        withIntermediateDirectories: true
+      )
+      try screenshot.pngRepresentation.write(
+        to: screenshotDirectory.appendingPathComponent("\(name).png")
+      )
     } catch {
-      XCTFail("Unable to write screenshot \(name): \(error.localizedDescription)")
+      // Device runners cannot write the host screenshot directory; the XCTest attachment remains.
+    }
+  }
+
+  @discardableResult
+  private func tapAllowIfPresent(in element: XCUIElement) -> Bool {
+    let predicate = NSPredicate(
+      format: "label CONTAINS[c] 'Allow' OR label CONTAINS[c] '允许' OR label == 'OK' OR label == '好'"
+    )
+    let button = element.buttons.matching(predicate).firstMatch
+    if button.exists {
+      button.tap()
+      return true
+    }
+    return false
+  }
+
+  private func tapLikelySystemAllowButtons() {
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    let allowPoints = [
+      CGVector(dx: 0.72, dy: 0.52),
+      CGVector(dx: 0.50, dy: 0.48),
+      CGVector(dx: 0.72, dy: 0.56),
+    ]
+    for point in allowPoints {
+      springboard.coordinate(withNormalizedOffset: point).tap()
+    }
+  }
+
+  private func dismissScoringErrorIfPresent(in app: XCUIApplication) {
+    let alert = app.alerts["Scoring error"]
+    guard alert.exists else { return }
+    if alert.buttons["OK"].exists {
+      alert.buttons["OK"].tap()
     }
   }
 }

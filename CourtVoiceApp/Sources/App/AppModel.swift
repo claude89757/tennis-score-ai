@@ -59,6 +59,7 @@ final class AppModel {
 
   func bootstrap() async {
     guard isBootstrapping else { return }
+    await seedDebugProviderKeys()
 
     async let entitlementStart: Void = entitlementStore.start()
     do {
@@ -144,6 +145,18 @@ final class AppModel {
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+
+  private func seedDebugProviderKeys() async {
+    #if DEBUG
+      guard
+        let key = ProcessInfo.processInfo.environment["COURTVOICE_DEEPSEEK_API_KEY"],
+        key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+      else {
+        return
+      }
+      try? await credentialStore.save(key, for: .deepseekAPIKey)
+    #endif
   }
 
   private func savePreferences() async {

@@ -2,14 +2,33 @@ import AVFoundation
 import Foundation
 import Speech
 
+/// Holds the live recognition request so the AVAudioEngine tap can append
+/// buffers on the realtime audio thread without hopping to the MainActor.
+private final class SpeechAudioRequestSlot: @unchecked Sendable {
+  var request: SFSpeechAudioBufferRecognitionRequest?
+}
+
+private enum SpeechAudioTapInstaller {
+  static func install(
+    on inputNode: AVAudioInputNode,
+    format: AVAudioFormat,
+    requestSlot: SpeechAudioRequestSlot
+  ) {
+    inputNode.removeTap(onBus: 0)
+    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
+      requestSlot.request?.append(buffer)
+    }
+  }
+}
+
 @MainActor
 final class AppleSpeechProvider: LiveSpeechProvider {
   let providerID = "apple.on-device"
   let displayName = "Apple on-device"
 
   private let audioEngine = AVAudioEngine()
+  private let requestSlot = SpeechAudioRequestSlot()
   private var recognizer: SFSpeechRecognizer?
-  private var request: SFSpeechAudioBufferRecognitionRequest?
   private var recognitionTask: SFSpeechRecognitionTask?
   private var restartTask: Task<Void, Never>?
   private var shouldContinue = false
@@ -59,10 +78,11 @@ final class AppleSpeechProvider: LiveSpeechProvider {
 
     let inputNode = audioEngine.inputNode
     let format = inputNode.outputFormat(forBus: 0)
-    inputNode.removeTap(onBus: 0)
-    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak self] buffer, _ in
-      self?.request?.append(buffer)
-    }
+    SpeechAudioTapInstaller.install(
+      on: inputNode,
+      format: format,
+      requestSlot: requestSlot
+    )
 
     audioEngine.prepare()
     try audioEngine.start()
@@ -76,8 +96,8 @@ final class AppleSpeechProvider: LiveSpeechProvider {
     restartTask = nil
     recognitionTask?.cancel()
     recognitionTask = nil
-    request?.endAudio()
-    request = nil
+    requestSlot.request?.endAudio()
+    requestSlot.request = nil
 
     if audioEngine.isRunning {
       audioEngine.stop()
@@ -96,7 +116,7 @@ final class AppleSpeechProvider: LiveSpeechProvider {
     request.taskHint = .dictation
     request.contextualStrings = contextualPhrases
     request.requiresOnDeviceRecognition = true
-    self.request = request
+    requestSlot.request = request
 
     recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
       Task { @MainActor [weak self] in
@@ -127,7 +147,7 @@ final class AppleSpeechProvider: LiveSpeechProvider {
 
   private func scheduleRestart() {
     guard shouldContinue else { return }
-    request?.endAudio()
+    requestSlot.request?.endAudio()
     recognitionTask?.cancel()
     restartTask?.cancel()
     restartTask = Task { [weak self] in

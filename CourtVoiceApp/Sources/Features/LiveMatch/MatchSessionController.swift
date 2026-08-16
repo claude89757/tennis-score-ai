@@ -3,20 +3,6 @@ import CourtVoiceCore
 import Foundation
 import Observation
 
-struct PendingSpeechAction: Identifiable, Equatable {
-  enum Proposal: Equatable {
-    case event(MatchEventKind)
-    case undo
-    case correction
-  }
-
-  let id = UUID()
-  let proposal: Proposal
-  let transcription: SpeechTranscription
-  let confidence: Double
-  let explanation: String
-}
-
 @MainActor
 @Observable
 final class MatchSessionController: Identifiable {
@@ -27,17 +13,23 @@ final class MatchSessionController: Identifiable {
   private let speechConfiguration: SpeechConfiguration
   private let credentialStore: ProviderCredentialStore
   private let parser = TranscriptIntentParser()
+  private let structuredParser = StructuredScoreIntentParser()
   private let resolver = ScoreIntentResolver()
   private var speechProvider: (any LiveSpeechProvider)?
+  private let reasoningTask = CancellableTaskHandle()
+  private let reasoningClientOverride: (any ScoreReasoningClient)?
 
   var lastErrorMessage: String?
   var lastActionDescription = "Match ready"
-  var isShowingCorrection = false
   var speechState: SpeechSessionState = .idle
   var lastTranscript = ""
   var lastTranscriptIsFinal = false
+  var transcriptLines: [LiveTranscriptLine] = []
+  var reasoningPhase: ScoreReasoningPhase = .idle
+  var reasoningThinking = ""
+  var reasoningAnswer = ""
   var activeProviderID: String?
-  var pendingSpeechAction: PendingSpeechAction?
+  private var lastCommittedSpeechID: UUID?
 
   var state: MatchState { timeline.currentState }
   var isListening: Bool { speechState.isActive }
@@ -46,12 +38,14 @@ final class MatchSessionController: Identifiable {
     initialState: MatchState,
     repository: MatchRepository,
     speechConfiguration: SpeechConfiguration = .standard,
-    credentialStore: ProviderCredentialStore = ProviderCredentialStore()
+    credentialStore: ProviderCredentialStore = ProviderCredentialStore(),
+    reasoningClient: (any ScoreReasoningClient)? = nil
   ) throws {
     id = initialState.id
     self.repository = repository
     self.speechConfiguration = speechConfiguration
     self.credentialStore = credentialStore
+    reasoningClientOverride = reasoningClient
 
     var newTimeline = MatchTimeline(initialState: initialState)
     try newTimeline.append(
@@ -68,13 +62,15 @@ final class MatchSessionController: Identifiable {
     savedMatch: SavedMatch,
     repository: MatchRepository,
     speechConfiguration: SpeechConfiguration = .standard,
-    credentialStore: ProviderCredentialStore = ProviderCredentialStore()
+    credentialStore: ProviderCredentialStore = ProviderCredentialStore(),
+    reasoningClient: (any ScoreReasoningClient)? = nil
   ) {
     id = savedMatch.id
     timeline = savedMatch.timeline
     self.repository = repository
     self.speechConfiguration = speechConfiguration
     self.credentialStore = credentialStore
+    reasoningClientOverride = reasoningClient
     lastActionDescription = "Match restored"
   }
 
@@ -122,114 +118,10 @@ final class MatchSessionController: Identifiable {
   func stopListening() async {
     let provider = speechProvider
     speechProvider = nil
+    reasoningTask.cancel()
     await provider?.stop()
     speechState = .idle
     activeProviderID = nil
-  }
-
-  func awardPoint(
-    to side: TeamSide,
-    source: MatchSource = .manual,
-    transcript: String? = nil,
-    confidence: Double? = nil,
-    providerID: String? = nil,
-    idempotencyKey: String? = nil
-  ) async {
-    await apply(
-      .pointAwarded(side),
-      evidence: ScoreEvidence(
-        transcript: transcript,
-        confidence: confidence,
-        providerID: providerID,
-        source: source
-      ),
-      idempotencyKey: idempotencyKey,
-      successDescription: "Point to \(state.teams[side].displayName)"
-    )
-  }
-
-  func undo() async {
-    await performUndo(evidence: ScoreEvidence(source: .manual))
-  }
-
-  func togglePause() async {
-    let kind: MatchEventKind
-    let description: String
-
-    switch state.status {
-    case .inProgress:
-      kind = .matchPaused
-      description = "Match paused"
-    case .paused:
-      kind = .matchResumed
-      description = "Match resumed"
-    default:
-      return
-    }
-
-    await apply(
-      kind,
-      evidence: ScoreEvidence(source: .manual),
-      successDescription: description
-    )
-
-    if kind == .matchPaused {
-      await stopListening()
-    }
-  }
-
-  func changeServer(to side: TeamSide) async {
-    await apply(
-      .serverChanged(side),
-      evidence: ScoreEvidence(source: .manual),
-      successDescription: "Server changed to \(state.teams[side].displayName)"
-    )
-  }
-
-  func applyCorrection(_ correction: ScoreCorrection) async {
-    pendingSpeechAction = nil
-    await apply(
-      .scoreCorrected(correction),
-      evidence: ScoreEvidence(source: .manual),
-      successDescription: "Score corrected"
-    )
-  }
-
-  func endMatch(winner: TeamSide) async {
-    await apply(
-      .matchEnded(winner: winner),
-      evidence: ScoreEvidence(source: .manual),
-      successDescription: "Match ended"
-    )
-    await stopListening()
-  }
-
-  func confirmPendingSpeechAction() async {
-    guard let pendingSpeechAction else { return }
-    self.pendingSpeechAction = nil
-
-    switch pendingSpeechAction.proposal {
-    case .event(let kind):
-      await applySpeechEvent(kind, transcription: pendingSpeechAction.transcription)
-    case .undo:
-      await performUndo(
-        evidence: evidence(for: pendingSpeechAction.transcription)
-      )
-    case .correction:
-      isShowingCorrection = true
-    }
-  }
-
-  func rejectPendingSpeechAction() {
-    if let pendingSpeechAction {
-      lastActionDescription = "Ignored: \(pendingSpeechAction.transcription.text)"
-    }
-    pendingSpeechAction = nil
-  }
-
-  func requestCorrectionForPendingSpeechAction() {
-    pendingSpeechAction = nil
-    isShowingCorrection = true
   }
 
   func ingestFinalTranscriptForTesting(
@@ -247,6 +139,17 @@ final class MatchSessionController: Identifiable {
     )
   }
 
+  func waitForReasoningToSettleForTesting() async {
+    for _ in 0..<200 {
+      switch reasoningPhase {
+      case .thinking, .answering:
+        try? await Task.sleep(for: .milliseconds(10))
+      case .idle, .complete, .failed:
+        return
+      }
+    }
+  }
+
   func persist() async throws {
     try await repository.save(timeline)
   }
@@ -254,66 +157,156 @@ final class MatchSessionController: Identifiable {
   private func handleTranscription(_ transcription: SpeechTranscription) async {
     lastTranscript = transcription.text
     lastTranscriptIsFinal = transcription.isFinal
+    appendTranscript(transcription)
+
     guard transcription.isFinal else { return }
 
     let candidate = parser.parse(transcription.text)
+    await applyResolvedCandidate(candidate, transcription: transcription)
+    await startScoreReasoning(for: transcription)
+  }
+
+  @discardableResult
+  private func applyResolvedCandidate(
+    _ candidate: IntentCandidate,
+    transcription: SpeechTranscription
+  ) async -> Bool {
     let providerConfidence = transcription.confidence ?? candidate.confidence
     let combinedConfidence = min(candidate.confidence, providerConfidence)
-    let shouldConfirm =
-      candidate.requiresConfirmation
-      || combinedConfidence < speechConfiguration.autoAcceptConfidence
+    let isTrusted =
+      candidate.requiresConfirmation == false
+      && combinedConfidence >= speechConfiguration.autoAcceptConfidence
+
+    if isTrusted == false {
+      lastActionDescription = "Held: the agent needs a clearer call before changing the score."
+      return false
+    }
 
     if candidate.intent == .undo {
-      if shouldConfirm {
-        pendingSpeechAction = PendingSpeechAction(
-          proposal: .undo,
-          transcription: transcription,
-          confidence: combinedConfidence,
-          explanation:
-            "Undo changes the score timeline and requires confirmation at this confidence."
+      await performUndo(evidence: evidence(for: transcription))
+      lastCommittedSpeechID = transcription.id
+      return true
+    }
+
+    switch resolver.resolve(candidate, state: state) {
+    case .event(let kind):
+      await applySpeechEvent(kind, transcription: transcription)
+      lastCommittedSpeechID = transcription.id
+      return true
+    case .alreadyCurrent:
+      lastActionDescription = "Heard the current score; no change"
+      return true
+    case .confirmationRequired(let reason):
+      lastActionDescription = "Held: \(reason)"
+      return false
+    case .ignored(let reason):
+      lastActionDescription = reason
+      return candidate.intent != .unknown
+    }
+  }
+
+  private func appendTranscript(_ transcription: SpeechTranscription) {
+    if var last = transcriptLines.last, last.isFinal == false {
+      last.text = transcription.text
+      last.isFinal = transcription.isFinal
+      transcriptLines[transcriptLines.count - 1] = last
+    } else {
+      transcriptLines.append(
+        LiveTranscriptLine(
+          id: transcription.id,
+          text: transcription.text,
+          isFinal: transcription.isFinal
         )
-      } else {
-        await performUndo(evidence: evidence(for: transcription))
-      }
+      )
+    }
+    if transcriptLines.count > 8 {
+      transcriptLines.removeFirst(transcriptLines.count - 8)
+    }
+  }
+
+  private func startScoreReasoning(for transcription: SpeechTranscription) async {
+    guard speechConfiguration.scoreReasoningEnabled else { return }
+
+    let client: (any ScoreReasoningClient)?
+    if let reasoningClientOverride {
+      client = reasoningClientOverride
+    } else if let key = try? await credentialStore.value(for: .deepseekAPIKey),
+      let endpoint = URL(string: speechConfiguration.scoreReasoningEndpoint)
+    {
+      client = DeepSeekScoreReasoningClient(
+        apiKey: key,
+        endpoint: endpoint,
+        model: speechConfiguration.scoreReasoningModel,
+        reasoningEffort: speechConfiguration.scoreReasoningEffort
+      )
+    } else {
+      reasoningPhase = .idle
       return
     }
 
-    let actionableCandidate = IntentCandidate(
-      intent: candidate.intent,
-      normalizedText: candidate.normalizedText,
-      confidence: candidate.confidence,
-      requiresConfirmation: false,
-      parserID: candidate.parserID
-    )
-    let resolution = resolver.resolve(
-      shouldConfirm ? actionableCandidate : candidate,
-      state: state
-    )
+    guard let client else { return }
 
-    switch resolution {
-    case .event(let kind):
-      if shouldConfirm {
-        pendingSpeechAction = PendingSpeechAction(
-          proposal: .event(kind),
-          transcription: transcription,
-          confidence: combinedConfidence,
-          explanation: "Confirm before applying this score action."
-        )
-      } else {
-        await applySpeechEvent(kind, transcription: transcription)
+    reasoningThinking = ""
+    reasoningAnswer = ""
+    reasoningPhase = .thinking
+
+    reasoningTask.store(
+      Task { [weak self] in
+        guard let self else { return }
+        do {
+          let answer = try await client.streamProposal(
+            transcript: transcription.text,
+            matchContext: self.matchContextDescription()
+          ) { event in
+            Task { @MainActor [weak self] in
+              self?.consumeReasoningEvent(event)
+            }
+          }
+          guard Task.isCancelled == false else { return }
+          await self.finishReasoning(answer: answer, transcription: transcription)
+        } catch is CancellationError {
+          return
+        } catch {
+          guard Task.isCancelled == false else { return }
+          self.reasoningPhase = .failed(error.localizedDescription)
+        }
       }
-    case .alreadyCurrent:
-      lastActionDescription = "Heard the current score; no change"
-    case .confirmationRequired(let reason):
-      pendingSpeechAction = PendingSpeechAction(
-        proposal: .correction,
-        transcription: transcription,
-        confidence: combinedConfidence,
-        explanation: reason
-      )
-    case .ignored(let reason):
-      lastActionDescription = reason
+    )
+  }
+
+  private func consumeReasoningEvent(_ event: ScoreReasoningEvent) {
+    switch event {
+    case .thinkingDelta(let delta):
+      reasoningPhase = .thinking
+      reasoningThinking += delta
+    case .answerDelta(let delta):
+      reasoningPhase = .answering
+      reasoningAnswer += delta
     }
+  }
+
+  private func finishReasoning(answer: String, transcription: SpeechTranscription) async {
+    if reasoningAnswer.isEmpty {
+      reasoningAnswer = answer
+    }
+    guard lastCommittedSpeechID != transcription.id,
+      let candidate = structuredParser.parse(jsonText: answer)
+    else {
+      reasoningPhase = .complete
+      return
+    }
+    await applyResolvedCandidate(candidate, transcription: transcription)
+    reasoningPhase = .complete
+  }
+
+  private func matchContextDescription() -> String {
+    """
+    home=\(state.teams.home.displayName)
+    away=\(state.teams.away.displayName)
+    server=\(state.server.rawValue)
+    spoken_score=\(ScoreFormatter.spokenScore(for: state, locale: speechConfiguration.locale))
+    status=\(String(describing: state.status))
+    """
   }
 
   private func applySpeechEvent(
@@ -324,7 +317,7 @@ final class MatchSessionController: Identifiable {
       kind,
       evidence: evidence(for: transcription),
       idempotencyKey: "speech-\(transcription.providerID)-\(transcription.id.uuidString)",
-      successDescription: "Voice confirmed: \(transcription.text)"
+      successDescription: "Agent scored: \(transcription.text)"
     )
   }
 

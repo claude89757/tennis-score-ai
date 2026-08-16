@@ -13,20 +13,27 @@ final class AppModel {
 
   let matchRepository: MatchRepository
   let preferencesRepository: PreferencesRepository
+  let credentialStore: ProviderCredentialStore
 
   var selectedTab: Tab = .home
   var matches: [SavedMatch] = []
   var activeSession: MatchSessionController?
   var isBootstrapping = true
-  var hasCompletedOnboarding = false
+  var preferences: AppPreferences = .initial
   var errorMessage: String?
+
+  var hasCompletedOnboarding: Bool {
+    preferences.hasCompletedOnboarding
+  }
 
   init(
     matchRepository: MatchRepository = MatchRepository(),
-    preferencesRepository: PreferencesRepository = PreferencesRepository()
+    preferencesRepository: PreferencesRepository = PreferencesRepository(),
+    credentialStore: ProviderCredentialStore = ProviderCredentialStore()
   ) {
     self.matchRepository = matchRepository
     self.preferencesRepository = preferencesRepository
+    self.credentialStore = credentialStore
   }
 
   func bootstrap() async {
@@ -34,11 +41,11 @@ final class AppModel {
 
     do {
       async let storedMatches = matchRepository.loadAll()
-      async let preferences = preferencesRepository.load()
+      async let storedPreferences = preferencesRepository.load()
       let loadedMatches = try await storedMatches
-      let loadedPreferences = try await preferences
+      let loadedPreferences = try await storedPreferences
       matches = loadedMatches
-      hasCompletedOnboarding = loadedPreferences.hasCompletedOnboarding
+      preferences = loadedPreferences
     } catch {
       errorMessage = error.localizedDescription
     }
@@ -47,21 +54,22 @@ final class AppModel {
   }
 
   func completeOnboarding() async {
-    hasCompletedOnboarding = true
-    do {
-      try await preferencesRepository.save(
-        AppPreferences(hasCompletedOnboarding: true)
-      )
-    } catch {
-      errorMessage = error.localizedDescription
-    }
+    preferences.hasCompletedOnboarding = true
+    await savePreferences()
+  }
+
+  func updateSpeechConfiguration(_ configuration: SpeechConfiguration) async {
+    preferences.speechConfiguration = configuration
+    await savePreferences()
   }
 
   func startMatch(from draft: MatchConfigurationDraft) async {
     do {
       let controller = try MatchSessionController(
         initialState: draft.makeInitialState(),
-        repository: matchRepository
+        repository: matchRepository,
+        speechConfiguration: preferences.speechConfiguration,
+        credentialStore: credentialStore
       )
       activeSession = controller
       try await controller.persist()
@@ -73,12 +81,15 @@ final class AppModel {
   func resume(_ savedMatch: SavedMatch) {
     activeSession = MatchSessionController(
       savedMatch: savedMatch,
-      repository: matchRepository
+      repository: matchRepository,
+      speechConfiguration: preferences.speechConfiguration,
+      credentialStore: credentialStore
     )
   }
 
   func closeActiveMatch() async {
     if let activeSession {
+      await activeSession.stopListening()
       do {
         try await activeSession.persist()
       } catch {
@@ -107,6 +118,14 @@ final class AppModel {
         try await matchRepository.delete(id: identifier)
       }
       await refreshMatches()
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
+  private func savePreferences() async {
+    do {
+      try await preferencesRepository.save(preferences)
     } catch {
       errorMessage = error.localizedDescription
     }

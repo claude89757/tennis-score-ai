@@ -54,7 +54,7 @@ struct MatchSetupView: View {
 
         Section {
           Label(
-            "You can always score manually. Voice control is optional and never bypasses the tennis rules engine.",
+            "After you start, the voice agent drives scoring. Only the tennis rules engine can change the official score.",
             systemImage: "checkmark.shield"
           )
           .font(.footnote)
@@ -74,6 +74,7 @@ struct MatchSetupView: View {
           }
           .disabled(draft.canStart == false)
           .fontWeight(.semibold)
+          .accessibilityIdentifier("matchSetup.start")
         }
       }
     }

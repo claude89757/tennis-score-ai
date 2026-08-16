@@ -23,6 +23,25 @@ targets:
         buildPhase: resources
     info:
       path: CourtVoiceApp/Info.plist
+      properties:
+        CFBundleDisplayName: CourtVoice
+        ITSAppUsesNonExemptEncryption: false
+        LSRequiresIPhoneOS: true
+        NSMicrophoneUsageDescription: CourtVoice listens for score announcements while a match is active so it can update the scoreboard.
+        NSSpeechRecognitionUsageDescription: CourtVoice converts spoken tennis scores into text for rules-checked scoring.
+        NSPhotoLibraryUsageDescription: CourtVoice can import a match video that you explicitly select for score analysis.
+        UIRequiredDeviceCapabilities: [arm64, microphone]
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
     entitlements:
       path: CourtVoiceApp/CourtVoice.entitlements
     configFiles:
@@ -31,6 +50,7 @@ targets:
     settings:
       base:
         PRODUCT_NAME: CourtVoice
+        PRODUCT_MODULE_NAME: CourtVoiceApp
         PRODUCT_BUNDLE_IDENTIFIER: com.claude89757.courtvoice
         SWIFT_VERSION: 6.0
         TARGETED_DEVICE_FAMILY: "1,2"
@@ -60,6 +80,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.claude89757.courtvoice.tests
         SWIFT_VERSION: 6.0
         GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/CourtVoice.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/CourtVoice
+        BUNDLE_LOADER: $(TEST_HOST)
     dependencies:
       - target: CourtVoiceApp
       - package: CourtVoice
@@ -67,20 +89,42 @@ targets:
       - package: CourtVoice
         product: CourtVoiceAI
 
+  CourtVoiceAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: CourtVoiceAppUITests
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude89757.courtvoice.uitests
+        SWIFT_VERSION: 6.0
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: CourtVoiceApp
+    dependencies:
+      - target: CourtVoiceApp
+
 schemes:
   CourtVoice:
     build:
       targets:
         CourtVoiceApp: all
         CourtVoiceAppTests: [test]
+        CourtVoiceAppUITests: [test]
     run:
       config: Debug
       storeKitConfiguration: CourtVoiceApp/Resources/CourtVoice.storekit
     test:
       config: Debug
+      storeKitConfiguration: CourtVoiceApp/Resources/CourtVoice.storekit
       gatherCoverageData: true
       targets:
         - name: CourtVoiceAppTests
           parallelizable: true
+        - name: CourtVoiceAppUITests
+          parallelizable: false
     archive:
       config: Release

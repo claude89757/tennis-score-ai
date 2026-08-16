@@ -10,7 +10,7 @@ struct OnboardingView: View {
       icon: "waveform.and.mic",
       title: "Call the score naturally",
       detail:
-        "CourtVoice is designed to listen only while a match is active. Manual scoring always remains available."
+        "Start a match, then let the voice agent keep score. CourtVoice listens only while the match is active."
     ),
     OnboardingPage(
       icon: "checkmark.shield.fill",
@@ -42,6 +42,7 @@ struct OnboardingView: View {
             .foregroundStyle(.white.opacity(0.85))
             .padding(.horizontal, 8)
             .frame(minHeight: CourtVoiceTheme.minimumHitTarget)
+            .accessibilityIdentifier("onboarding.skip")
         }
 
         TabView(selection: $page) {
@@ -91,6 +92,7 @@ struct OnboardingView: View {
         .tint(CourtVoiceTheme.tennisYellow)
         .foregroundStyle(CourtVoiceTheme.ink)
         .clipShape(RoundedRectangle(cornerRadius: CourtVoiceTheme.controlCornerRadius))
+        .accessibilityIdentifier("onboarding.continue")
       }
       .padding()
     }

@@ -143,7 +143,8 @@ final class OpenAICompatibleSpeechProvider: LiveSpeechProvider {
     append("\(model)\r\n")
     append("--\(boundary)\r\n")
     append("Content-Disposition: form-data; name=\"language\"\r\n\r\n")
-    append("\(locale.language.languageCode?.identifier ?? \"en\")\r\n")
+    let languageCode = locale.language.languageCode?.identifier ?? "en"
+    append("\(languageCode)\r\n")
     append("--\(boundary)\r\n")
     append("Content-Disposition: form-data; name=\"prompt\"\r\n\r\n")
     append(

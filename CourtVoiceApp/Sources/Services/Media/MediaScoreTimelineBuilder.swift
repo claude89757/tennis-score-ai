@@ -103,7 +103,43 @@ struct MediaScoreTimelineBuilder {
           )
         }
 
-      case .event:
+      case .events(let kinds)
+      where candidate.requiresConfirmation == false
+        && combinedConfidence >= automaticAcceptanceThreshold:
+        do {
+          for (offset, kind) in kinds.enumerated() {
+            try timeline.append(
+              MatchEvent(
+                occurredAt: startedAt.addingTimeInterval(max(0, utterance.startTime)),
+                kind: kind,
+                evidence: ScoreEvidence(
+                  transcript: utterance.text,
+                  confidence: combinedConfidence,
+                  providerID: utterance.providerID,
+                  source: .importedMedia
+                ),
+                idempotencyKey: "media-\(utterance.providerID)-\(utterance.id.uuidString)-\(offset)"
+              )
+            )
+          }
+          rows.append(
+            MediaAnalysisRow(
+              utterance: utterance,
+              outcome: .accepted,
+              detail: "Accepted as a reachable in-game score"
+            )
+          )
+        } catch {
+          rows.append(
+            MediaAnalysisRow(
+              utterance: utterance,
+              outcome: .rejected,
+              detail: error.localizedDescription
+            )
+          )
+        }
+
+      case .event, .events:
         rows.append(
           MediaAnalysisRow(
             utterance: utterance,

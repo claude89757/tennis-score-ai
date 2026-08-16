@@ -5,6 +5,18 @@ import CourtVoiceCore
 final class TranscriptIntentParserTests: XCTestCase {
     private let parser = TranscriptIntentParser()
 
+    func testParsesScoreEmbeddedInSpokenSentence() {
+        let result = parser.parse("现在比分是15比零")
+        XCTAssertEqual(result.intent, .reportedScore(server: .fifteen, receiver: .love))
+        XCTAssertFalse(result.requiresConfirmation)
+        XCTAssertGreaterThanOrEqual(result.confidence, 0.92)
+    }
+
+    func testIgnoresNonTennisNumericScore() {
+        let result = parser.parse("现在比分是一比一")
+        XCTAssertEqual(result.intent, .unknown)
+    }
+
     func testParsesChineseScore() {
         let result = parser.parse("三十比十五")
         XCTAssertEqual(result.intent, .reportedScore(server: .thirty, receiver: .fifteen))
@@ -50,7 +62,7 @@ final class TranscriptIntentParserTests: XCTestCase {
         )
     }
 
-    func testResolverRequiresConfirmationForImpossibleJump() {
+    func testResolverCatchesUpToReachableInGameScore() {
         var state = MatchState(
             teams: SidePair(
                 home: Team(displayName: "A"),
@@ -58,9 +70,29 @@ final class TranscriptIntentParserTests: XCTestCase {
             )
         )
         state.status = .inProgress
-        let candidate = parser.parse("四十比零")
+        state.currentGame.rawPoints = SidePair(home: 1, away: 0)
+        state.server = .home
+
+        let candidate = parser.parse("30平")
+        XCTAssertEqual(candidate.intent, .reportedScore(server: .thirty, receiver: .thirty))
+        guard case .events(let kinds) = ScoreIntentResolver().resolve(candidate, state: state) else {
+            return XCTFail("A reachable 30-all from 15-0 should catch up")
+        }
+        XCTAssertEqual(kinds.count, 3)
+    }
+
+    func testResolverRequiresConfirmationForBackwardsScore() {
+        var state = MatchState(
+            teams: SidePair(
+                home: Team(displayName: "A"),
+                away: Team(displayName: "B")
+            )
+        )
+        state.status = .inProgress
+        state.currentGame.rawPoints = SidePair(home: 3, away: 0)
+        let candidate = parser.parse("十五比零")
         guard case .confirmationRequired = ScoreIntentResolver().resolve(candidate, state: state) else {
-            return XCTFail("An impossible score jump must not auto-commit")
+            return XCTFail("A backwards score must not auto-commit")
         }
     }
 }

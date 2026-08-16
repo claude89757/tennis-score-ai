@@ -3,6 +3,7 @@ import CourtVoiceCore
 
 public enum ScoreIntentResolution: Equatable, Sendable {
     case event(MatchEventKind)
+    case events([MatchEventKind])
     case alreadyCurrent
     case confirmationRequired(String)
     case ignored(String)
@@ -82,7 +83,45 @@ public struct ScoreIntentResolver: Sendable {
             return .event(.pointAwarded(.away))
         }
 
-        return .confirmationRequired("The reported score is not a single legal point transition from the current state.")
+        if let path = catchUpPath(from: current, to: reported, format: state.format) {
+            return .events(path.map { .pointAwarded($0) })
+        }
+
+        return .confirmationRequired("The reported score is not a reachable score in the current game.")
+    }
+
+    private func catchUpPath(
+        from current: SidePair<Int>,
+        to target: SidePair<Int>,
+        format: MatchFormat
+    ) -> [TeamSide]? {
+        var queue: [(SidePair<Int>, [TeamSide])] = [(current, [])]
+        var seen: Set<String> = [pointKey(current)]
+        var index = 0
+
+        while index < queue.count {
+            let (points, path) = queue[index]
+            index += 1
+            guard path.count < 7 else { continue }
+
+            for side in [TeamSide.home, TeamSide.away] {
+                let next = nextPoints(afterAwarding: side, current: points, format: format)
+                let key = pointKey(next)
+                guard seen.contains(key) == false else { continue }
+                seen.insert(key)
+                let nextPath = path + [side]
+                if next == target {
+                    return nextPath
+                }
+                queue.append((next, nextPath))
+            }
+        }
+
+        return nil
+    }
+
+    private func pointKey(_ points: SidePair<Int>) -> String {
+        "\(points.home)-\(points.away)"
     }
 
     private func nextPoints(

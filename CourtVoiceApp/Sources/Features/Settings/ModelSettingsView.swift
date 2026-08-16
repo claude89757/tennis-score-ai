@@ -8,8 +8,10 @@ struct ModelSettingsView: View {
   @State private var configuration = SpeechConfiguration.standard
   @State private var openAIKey = ""
   @State private var deepgramKey = ""
+  @State private var deepseekKey = ""
   @State private var hasOpenAIKey = false
   @State private var hasDeepgramKey = false
+  @State private var hasDeepSeekKey = false
   @State private var operationMessage: String?
   @State private var isSaving = false
 
@@ -40,14 +42,14 @@ struct ModelSettingsView: View {
           )
           Slider(value: $configuration.autoAcceptConfidence, in: 0.75...0.99, step: 0.01)
           Text(
-            "Lower-confidence or non-linear score changes are held for confirmation instead of changing the scoreboard."
+            "Calls below this confidence do not change the official score. A short pause after a stable call commits it for scoring and model thinking, even if the recognizer has not marked the transcript final."
           )
           .font(.footnote)
           .foregroundStyle(.secondary)
         }
       }
 
-      Section("OpenAI-compatible BYOK") {
+      Section {
         TextField("HTTPS transcription endpoint", text: $configuration.openAITranscriptionEndpoint)
           .keyboardType(.URL)
           .textInputAutocapitalization(.never)
@@ -78,13 +80,15 @@ struct ModelSettingsView: View {
             }
           }
         }
+      } header: {
+        Text("OpenAI-compatible BYOK")
       } footer: {
         Text(
           "Short voice segments are sent directly from this device to the configured endpoint. The provider may bill your own account. CourtVoice never adds the key to logs or match exports."
         )
       }
 
-      Section("Deepgram BYOK") {
+      Section {
         TextField("Model", text: $configuration.deepgramModel)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
@@ -114,9 +118,53 @@ struct ModelSettingsView: View {
             }
           }
         }
+      } header: {
+        Text("Deepgram BYOK")
       } footer: {
         Text(
-          "While listening is active, 16 kHz mono PCM is streamed directly to Deepgram. Stopping or pausing the match stops capture."
+          "While the voice agent is listening, 16 kHz mono PCM is streamed directly to Deepgram. Stopping the agent or closing the match stops capture."
+        )
+      }
+
+      Section {
+        Toggle("Stream thinking on the live board", isOn: $configuration.scoreReasoningEnabled)
+
+        Picker("Model", selection: $configuration.scoreReasoningModel) {
+          Text("deepseek-v4-flash").tag("deepseek-v4-flash")
+          Text("deepseek-v4-pro").tag("deepseek-v4-pro")
+        }
+
+        TextField("HTTPS chat endpoint", text: $configuration.scoreReasoningEndpoint)
+          .keyboardType(.URL)
+          .textInputAutocapitalization(.never)
+          .autocorrectionDisabled()
+
+        SecureField(
+          hasDeepSeekKey ? "API key saved — enter to replace" : "API key",
+          text: $deepseekKey
+        )
+        .textContentType(.password)
+        .textInputAutocapitalization(.never)
+        .privacySensitive()
+
+        HStack {
+          Button("Save key") {
+            Task { await saveDeepSeekKey() }
+          }
+          .disabled(deepseekKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+          if hasDeepSeekKey {
+            Spacer()
+            Button("Remove", role: .destructive) {
+              Task { await removeCredential(.deepseekAPIKey) }
+            }
+          }
+        }
+      } header: {
+        Text("DeepSeek score reasoning")
+      } footer: {
+        Text(
+          "DeepSeek is the live thinking model, not the transcriber. It streams reasoning on the match screen and may propose a structured intent. Only the tennis rules engine can change the official score. The key stays in this device's Keychain."
         )
       }
 
@@ -175,6 +223,17 @@ struct ModelSettingsView: View {
     }
   }
 
+  private func saveDeepSeekKey() async {
+    do {
+      try await appModel.credentialStore.save(deepseekKey, for: .deepseekAPIKey)
+      deepseekKey = ""
+      await refreshCredentialStatus()
+      operationMessage = "DeepSeek key saved in the device-only Keychain."
+    } catch {
+      operationMessage = error.localizedDescription
+    }
+  }
+
   private func saveDeepgramKey() async {
     do {
       try await appModel.credentialStore.save(deepgramKey, for: .deepgramAPIKey)
@@ -199,6 +258,7 @@ struct ModelSettingsView: View {
   private func refreshCredentialStatus() async {
     hasOpenAIKey = (try? await appModel.credentialStore.contains(.openAIAPIKey)) == true
     hasDeepgramKey = (try? await appModel.credentialStore.contains(.deepgramAPIKey)) == true
+    hasDeepSeekKey = (try? await appModel.credentialStore.contains(.deepseekAPIKey)) == true
   }
 
   private func validateConfiguration() -> Bool {
@@ -214,6 +274,15 @@ struct ModelSettingsView: View {
     else {
       operationMessage = "The automatic-acceptance threshold is outside the supported range."
       return false
+    }
+    if configuration.scoreReasoningEnabled {
+      guard
+        let reasoningEndpoint = URL(string: configuration.scoreReasoningEndpoint),
+        reasoningEndpoint.scheme?.lowercased() == "https"
+      else {
+        operationMessage = "The DeepSeek endpoint must be a valid HTTPS URL."
+        return false
+      }
     }
     return true
   }

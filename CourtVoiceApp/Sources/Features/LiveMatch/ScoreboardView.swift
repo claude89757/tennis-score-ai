@@ -19,6 +19,7 @@ struct ScoreboardView: View {
     }
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Tennis scoreboard")
+    .accessibilityIdentifier("live.scoreboard")
   }
 
   private var header: some View {

@@ -30,6 +30,16 @@ playground.xcworkspace
 # .swiftpm
 
 .build/
+build/
+CourtVoice.xcodeproj/
+
+# Owner-private match media must never be committed
+*.mov
+*.MOV
+*.mp4
+*.m4a
+*.wav
+*.aac
 
 # CocoaPods
 #

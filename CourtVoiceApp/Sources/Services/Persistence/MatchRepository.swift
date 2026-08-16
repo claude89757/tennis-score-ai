@@ -56,6 +56,10 @@ actor MatchRepository {
     try write(matches)
   }
 
+  func deleteAll() throws {
+    try write([])
+  }
+
   private func write(_ matches: [SavedMatch]) throws {
     let directory = fileURL.deletingLastPathComponent()
     if FileManager.default.fileExists(atPath: directory.path) == false {

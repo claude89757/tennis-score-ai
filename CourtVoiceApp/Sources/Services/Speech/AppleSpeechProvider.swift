@@ -2,16 +2,37 @@ import AVFoundation
 import Foundation
 import Speech
 
+/// Holds the live recognition request so the AVAudioEngine tap can append
+/// buffers on the realtime audio thread without hopping to the MainActor.
+private final class SpeechAudioRequestSlot: @unchecked Sendable {
+  var request: SFSpeechAudioBufferRecognitionRequest?
+}
+
+private enum SpeechAudioTapInstaller {
+  static func install(
+    on inputNode: AVAudioInputNode,
+    format: AVAudioFormat,
+    requestSlot: SpeechAudioRequestSlot
+  ) {
+    inputNode.removeTap(onBus: 0)
+    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { buffer, _ in
+      requestSlot.request?.append(buffer)
+    }
+  }
+}
+
 @MainActor
 final class AppleSpeechProvider: LiveSpeechProvider {
   let providerID = "apple.on-device"
   let displayName = "Apple on-device"
 
   private let audioEngine = AVAudioEngine()
+  private let requestSlot = SpeechAudioRequestSlot()
   private var recognizer: SFSpeechRecognizer?
-  private var request: SFSpeechAudioBufferRecognitionRequest?
   private var recognitionTask: SFSpeechRecognitionTask?
   private var restartTask: Task<Void, Never>?
+  private var finalizeTask: Task<Void, Never>?
+  private var lastHeardText = ""
   private var shouldContinue = false
   private var locale = Locale(identifier: "en-US")
   private var contextualPhrases: [String] = []
@@ -59,10 +80,11 @@ final class AppleSpeechProvider: LiveSpeechProvider {
 
     let inputNode = audioEngine.inputNode
     let format = inputNode.outputFormat(forBus: 0)
-    inputNode.removeTap(onBus: 0)
-    inputNode.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak self] buffer, _ in
-      self?.request?.append(buffer)
-    }
+    SpeechAudioTapInstaller.install(
+      on: inputNode,
+      format: format,
+      requestSlot: requestSlot
+    )
 
     audioEngine.prepare()
     try audioEngine.start()
@@ -72,12 +94,15 @@ final class AppleSpeechProvider: LiveSpeechProvider {
 
   func stop() async {
     shouldContinue = false
+    finalizeTask?.cancel()
+    finalizeTask = nil
     restartTask?.cancel()
     restartTask = nil
+    lastHeardText = ""
     recognitionTask?.cancel()
     recognitionTask = nil
-    request?.endAudio()
-    request = nil
+    requestSlot.request?.endAudio()
+    requestSlot.request = nil
 
     if audioEngine.isRunning {
       audioEngine.stop()
@@ -96,13 +121,14 @@ final class AppleSpeechProvider: LiveSpeechProvider {
     request.taskHint = .dictation
     request.contextualStrings = contextualPhrases
     request.requiresOnDeviceRecognition = true
-    self.request = request
+    requestSlot.request = request
 
     recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
       Task { @MainActor [weak self] in
         guard let self else { return }
 
         if let result {
+          let text = result.bestTranscription.formattedString
           let segments = result.bestTranscription.segments
           let confidence: Double? =
             segments.isEmpty
@@ -110,24 +136,52 @@ final class AppleSpeechProvider: LiveSpeechProvider {
             : Double(segments.reduce(0) { $0 + $1.confidence }) / Double(segments.count)
           self.onTranscription?(
             SpeechTranscription(
-              text: result.bestTranscription.formattedString,
+              text: text,
               confidence: confidence,
               isFinal: result.isFinal,
               providerID: self.providerID
             )
           )
+
+          if result.isFinal {
+            self.finalizeTask?.cancel()
+            self.lastHeardText = ""
+            self.scheduleRestart()
+            return
+          }
+          self.scheduleForcedFinal(for: text)
         }
 
-        if error != nil || result?.isFinal == true {
+        if error != nil {
+          self.finalizeTask?.cancel()
           self.scheduleRestart()
         }
       }
     }
   }
 
+  private func scheduleForcedFinal(for text: String) {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.isEmpty == false else { return }
+    lastHeardText = trimmed
+    finalizeTask?.cancel()
+    finalizeTask = Task { [weak self] in
+      try? await Task.sleep(for: .milliseconds(900))
+      guard let self, Task.isCancelled == false, self.shouldContinue else { return }
+      guard self.lastHeardText == trimmed else { return }
+      self.requestSlot.request?.endAudio()
+      self.requestSlot.request = nil
+      try? await Task.sleep(for: .milliseconds(450))
+      guard Task.isCancelled == false, self.shouldContinue else { return }
+      if self.requestSlot.request == nil {
+        self.scheduleRestart()
+      }
+    }
+  }
+
   private func scheduleRestart() {
     guard shouldContinue else { return }
-    request?.endAudio()
+    requestSlot.request?.endAudio()
     recognitionTask?.cancel()
     restartTask?.cancel()
     restartTask = Task { [weak self] in

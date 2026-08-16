@@ -39,8 +39,27 @@ final class AppModel {
     self.entitlementStore = entitlementStore
   }
 
+  func prepareLaunchConfiguration() async {
+    let arguments = ProcessInfo.processInfo.arguments
+    guard arguments.contains("-ui-testing") else { return }
+
+    do {
+      if arguments.contains("-ui-testing-reset") {
+        try await matchRepository.deleteAll()
+        var next = AppPreferences.initial
+        if arguments.contains("-ui-testing-skip-onboarding") {
+          next.hasCompletedOnboarding = true
+        }
+        try await preferencesRepository.save(next)
+      }
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
   func bootstrap() async {
     guard isBootstrapping else { return }
+    await seedDebugProviderKeys()
 
     async let entitlementStart: Void = entitlementStore.start()
     do {
@@ -126,6 +145,18 @@ final class AppModel {
     } catch {
       errorMessage = error.localizedDescription
     }
+  }
+
+  private func seedDebugProviderKeys() async {
+    #if DEBUG
+      guard
+        let key = ProcessInfo.processInfo.environment["COURTVOICE_DEEPSEEK_API_KEY"],
+        key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+      else {
+        return
+      }
+      try? await credentialStore.save(key, for: .deepseekAPIKey)
+    #endif
   }
 
   private func savePreferences() async {

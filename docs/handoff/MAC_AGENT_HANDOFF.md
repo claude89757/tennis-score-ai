@@ -41,11 +41,11 @@ Make the smallest compile-correct changes. Do not disable strict concurrency glo
 Capture logs or screenshots for:
 
 1. First launch and onboarding.
-2. Create a match and score manually through deuce/advantage, undo, correction and finish.
+2. Create a match and confirm the live board has no manual award / undo / correction controls.
 3. Force-quit and relaunch during a match; verify persisted history.
 4. Confirm microphone and Speech permissions are requested only when listening starts.
 5. Verify partial/final transcript handling does not duplicate score events.
-6. Verify model/provider failure never disables manual scoring.
+6. Verify provider failure leaves the official score unchanged and does not invent a manual scoring fallback.
 7. Save and remove BYOK credentials without exposing them in UI or logs.
 8. Import a short local media file and inspect transcript-to-score handling.
 9. Run local StoreKit monthly/annual purchase, trial, restore, pending and revocation scenarios.
@@ -75,7 +75,7 @@ Use the owner's private full-match video without committing it. Compare the supp
 - noisy outdoor behavior;
 - fallback and recovery behavior.
 
-The release target is trustworthy automatic acceptance, not the highest raw transcript recall. Low-confidence or conflicting input must request confirmation.
+The release target is trustworthy automatic acceptance, not the highest raw transcript recall. Low-confidence or conflicting input must not change the official score.
 
 ## 6. StoreKit and release configuration
 

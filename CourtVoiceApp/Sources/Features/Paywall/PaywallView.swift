@@ -73,7 +73,7 @@ struct PaywallView: View {
         .multilineTextAlignment(.center)
 
       Text(
-        "Pro adds managed cloud usage, complete exports, unlimited history, live web scoreboards and cross-device services. Manual scoring and supported on-device recognition remain usable without Pro."
+        "Pro adds managed cloud usage, complete exports, unlimited history, live web scoreboards and cross-device services. Starting a match and watching the live board remain available without Pro."
       )
       .font(.body)
       .foregroundStyle(.secondary)

@@ -1,0 +1,96 @@
+{
+  "identifier" : "CourtVoiceSubscriptions",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "0000000000",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "USA",
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "courtvoice-pro",
+      "localizations" : [
+        {
+          "description" : "Voice scoring, complete exports and live scoreboard services.",
+          "displayName" : "CourtVoice Pro",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "语音计分、完整导出和实时比分服务。",
+          "displayName" : "CourtVoice Pro",
+          "locale" : "zh_CN"
+        }
+      ],
+      "name" : "CourtVoice Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "7.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "monthly",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly CourtVoice Pro access.",
+              "displayName" : "Pro Monthly",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "CourtVoice Pro 月度使用权。",
+              "displayName" : "Pro 月度版",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "com.claude89757.courtvoice.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro Monthly",
+          "subscriptionGroupID" : "courtvoice-pro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "59.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "annual",
+          "introductoryOffer" : {
+            "displayPrice" : "0",
+            "internalID" : "annual-trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "Annual access with a seven-day introductory offer.",
+              "displayName" : "Pro Annual",
+              "locale" : "en_US"
+            },
+            {
+              "description" : "年度使用权，含 7 天新用户试用。",
+              "displayName" : "Pro 年度版",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "com.claude89757.courtvoice.pro.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Pro Annual",
+          "subscriptionGroupID" : "courtvoice-pro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

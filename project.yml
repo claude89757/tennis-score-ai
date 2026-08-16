@@ -75,6 +75,7 @@ schemes:
         CourtVoiceAppTests: [test]
     run:
       config: Debug
+      storeKitConfiguration: CourtVoiceApp/Resources/CourtVoice.storekit
     test:
       config: Debug
       gatherCoverageData: true

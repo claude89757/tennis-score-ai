@@ -7,6 +7,22 @@ struct SettingsView: View {
   var body: some View {
     NavigationStack {
       List {
+        Section("Subscription") {
+          NavigationLink {
+            PaywallView()
+          } label: {
+            Label(
+              appModel.entitlementStore.isPro
+                ? "CourtVoice Pro active" : "Upgrade to CourtVoice Pro",
+              systemImage: appModel.entitlementStore.isPro ? "checkmark.seal.fill" : "sparkles"
+            )
+          }
+          LabeledContent(
+            "Status",
+            value: appModel.entitlementStore.isPro ? "Active" : "Free"
+          )
+        }
+
         Section("Scoring") {
           NavigationLink {
             ModelSettingsView()

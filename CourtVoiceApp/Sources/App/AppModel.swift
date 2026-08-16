@@ -14,6 +14,7 @@ final class AppModel {
   let matchRepository: MatchRepository
   let preferencesRepository: PreferencesRepository
   let credentialStore: ProviderCredentialStore
+  let entitlementStore: EntitlementStore
 
   var selectedTab: Tab = .home
   var matches: [SavedMatch] = []
@@ -29,16 +30,19 @@ final class AppModel {
   init(
     matchRepository: MatchRepository = MatchRepository(),
     preferencesRepository: PreferencesRepository = PreferencesRepository(),
-    credentialStore: ProviderCredentialStore = ProviderCredentialStore()
+    credentialStore: ProviderCredentialStore = ProviderCredentialStore(),
+    entitlementStore: EntitlementStore = EntitlementStore()
   ) {
     self.matchRepository = matchRepository
     self.preferencesRepository = preferencesRepository
     self.credentialStore = credentialStore
+    self.entitlementStore = entitlementStore
   }
 
   func bootstrap() async {
     guard isBootstrapping else { return }
 
+    async let entitlementStart: Void = entitlementStore.start()
     do {
       async let storedMatches = matchRepository.loadAll()
       async let storedPreferences = preferencesRepository.load()
@@ -50,6 +54,7 @@ final class AppModel {
       errorMessage = error.localizedDescription
     }
 
+    _ = await entitlementStart
     isBootstrapping = false
   }
 

@@ -27,6 +27,9 @@ struct LiveMatchView: View {
       }
     }
     .preferredColorScheme(.dark)
+    .onDisappear {
+      Task { await controller.stopListening() }
+    }
     .sheet(isPresented: $controller.isShowingCorrection) {
       ScoreCorrectionView(state: controller.state) { correction in
         Task { await controller.applyCorrection(correction) }
@@ -65,14 +68,17 @@ struct LiveMatchView: View {
   }
 
   private var portraitLayout: some View {
-    VStack(spacing: 18) {
-      matchToolbar
-      ScoreboardView(state: controller.state)
-      statusStrip
-      manualScoringControls
-      utilityControls
+    ScrollView {
+      VStack(spacing: 18) {
+        matchToolbar
+        ScoreboardView(state: controller.state)
+        statusStrip
+        voicePanel
+        manualScoringControls
+        utilityControls
+      }
+      .padding()
     }
-    .padding()
   }
 
   private var landscapeLayout: some View {
@@ -84,11 +90,14 @@ struct LiveMatchView: View {
       }
       .frame(maxWidth: .infinity)
 
-      VStack(spacing: 14) {
-        manualScoringControls
-        utilityControls
+      ScrollView {
+        VStack(spacing: 14) {
+          voicePanel
+          manualScoringControls
+          utilityControls
+        }
       }
-      .frame(width: 280)
+      .frame(width: 320)
     }
     .padding()
   }
@@ -155,6 +164,87 @@ struct LiveMatchView: View {
     .padding(.horizontal, 16)
     .frame(minHeight: 48)
     .background(.white.opacity(0.08), in: Capsule())
+  }
+
+  private var voicePanel: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack(spacing: 9) {
+        Image(systemName: speechStateIcon)
+          .foregroundStyle(CourtVoiceTheme.tennisYellow)
+        Text(controller.speechState.title)
+          .font(.subheadline.weight(.semibold))
+          .lineLimit(2)
+        Spacer()
+      }
+
+      Text(
+        controller.lastTranscript.isEmpty
+          ? "Start voice scoring when the phone is positioned near the court. Manual controls always remain active."
+          : "“\(controller.lastTranscript)”"
+      )
+      .font(controller.lastTranscript.isEmpty ? .footnote : .body.weight(.medium))
+      .foregroundStyle(.white.opacity(0.76))
+      .lineLimit(4)
+
+      if let pending = controller.pendingSpeechAction {
+        VStack(alignment: .leading, spacing: 10) {
+          Text("Confirmation required")
+            .font(.caption.bold())
+            .foregroundStyle(CourtVoiceTheme.warning)
+          Text(pending.explanation)
+            .font(.footnote)
+            .foregroundStyle(.white.opacity(0.72))
+
+          HStack {
+            Button("Ignore") {
+              controller.rejectPendingSpeechAction()
+            }
+            .buttonStyle(.bordered)
+
+            if pending.proposal == .correction {
+              Button("Correct") {
+                controller.requestCorrectionForPendingSpeechAction()
+              }
+              .buttonStyle(.borderedProminent)
+              .tint(CourtVoiceTheme.warning)
+              .foregroundStyle(CourtVoiceTheme.ink)
+            } else {
+              Button("Confirm") {
+                Task { await controller.confirmPendingSpeechAction() }
+              }
+              .buttonStyle(.borderedProminent)
+              .tint(CourtVoiceTheme.tennisYellow)
+              .foregroundStyle(CourtVoiceTheme.ink)
+            }
+          }
+        }
+        .padding(12)
+        .background(.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 14))
+      }
+
+      Button {
+        Task {
+          if controller.isListening {
+            await controller.stopListening()
+          } else {
+            await controller.startListening()
+          }
+        }
+      } label: {
+        Label(
+          controller.isListening ? "Stop listening" : "Start voice scoring",
+          systemImage: controller.isListening ? "mic.slash.fill" : "mic.fill"
+        )
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 50)
+      }
+      .buttonStyle(.borderedProminent)
+      .tint(controller.isListening ? .white : CourtVoiceTheme.tennisYellow)
+      .foregroundStyle(CourtVoiceTheme.ink)
+      .disabled(controller.state.status != .inProgress)
+    }
+    .padding(16)
+    .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 22))
   }
 
   private var manualScoringControls: some View {
@@ -241,6 +331,18 @@ struct LiveMatchView: View {
     .foregroundStyle(.white)
   }
 
+  private var speechStateIcon: String {
+    switch controller.speechState {
+    case .idle: "mic.slash"
+    case .requestingPermission: "hand.raised.fill"
+    case .preparing: "ellipsis.circle"
+    case .listening: "waveform.circle.fill"
+    case .processing: "sparkles"
+    case .interrupted: "pause.circle"
+    case .failed: "exclamationmark.triangle.fill"
+    }
+  }
+
   private var pauseButtonTitle: String {
     controller.state.status == .paused ? "Resume" : "Pause"
   }
@@ -269,6 +371,11 @@ struct LiveMatchView: View {
 
   private func elapsedTime(from start: Date, to end: Date) -> String {
     let seconds = max(0, Int(end.timeIntervalSince(start)))
-    return String(format: "%02d:%02d:%02d", seconds / 3_600, (seconds % 3_600) / 60, seconds % 60)
+    return String(
+      format: "%02d:%02d:%02d",
+      seconds / 3_600,
+      (seconds % 3_600) / 60,
+      seconds % 60
+    )
   }
 }

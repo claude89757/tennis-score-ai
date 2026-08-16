@@ -69,6 +69,28 @@ final class SpeechScoringTests: XCTestCase {
     XCTAssertNil(controller.pendingSpeechAction)
   }
 
+  func testRepeatedCurrentScoreDoesNotDuplicatePoint() async throws {
+    let repository = MatchRepository(baseDirectory: temporaryDirectory())
+    let state = MatchState(
+      teams: SidePair(
+        home: Team(displayName: "Server"),
+        away: Team(displayName: "Receiver")
+      ),
+      initialServer: .home
+    )
+    let controller = try MatchSessionController(
+      initialState: state,
+      repository: repository
+    )
+
+    await controller.ingestFinalTranscriptForTesting("15-0")
+    await controller.ingestFinalTranscriptForTesting("15-0")
+
+    XCTAssertEqual(controller.state.currentGame.rawPoints.home, 1)
+    XCTAssertEqual(controller.state.currentGame.rawPoints.away, 0)
+    XCTAssertNil(controller.pendingSpeechAction)
+  }
+
   private func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString, isDirectory: true)

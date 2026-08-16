@@ -24,7 +24,8 @@ final class EntitlementStore {
   private(set) var lastRefreshedAt: Date?
   var errorMessage: String?
 
-  private var transactionUpdatesTask: Task<Void, Never>?
+  @ObservationIgnored
+  private let transactionUpdates = CancellableTaskHandle()
 
   var isPro: Bool {
     activeProductIDs.isDisjoint(with: Self.productIDs) == false
@@ -39,7 +40,7 @@ final class EntitlementStore {
   }
 
   deinit {
-    transactionUpdatesTask?.cancel()
+    transactionUpdates.cancel()
   }
 
   func start() async {
@@ -103,6 +104,13 @@ final class EntitlementStore {
     }
   }
 
+  #if DEBUG
+    func applyVerifiedProductIDsForTesting(_ identifiers: Set<String>) {
+      activeProductIDs = identifiers
+      lastRefreshedAt = Date()
+    }
+  #endif
+
   func refreshEntitlements() async {
     var active = Set<String>()
 
@@ -120,20 +128,21 @@ final class EntitlementStore {
   }
 
   private func observeTransactionUpdates() {
-    guard transactionUpdatesTask == nil else { return }
-
-    transactionUpdatesTask = Task { [weak self] in
-      for await result in Transaction.updates {
-        guard let self else { return }
-        do {
-          let transaction = try self.verified(result)
-          await transaction.finish()
-          await self.refreshEntitlements()
-        } catch {
-          self.errorMessage = error.localizedDescription
+    guard transactionUpdates.hasTask == false else { return }
+    transactionUpdates.store(
+      Task { [weak self] in
+        for await result in Transaction.updates {
+          guard let self else { return }
+          do {
+            let transaction = try self.verified(result)
+            await transaction.finish()
+            await self.refreshEntitlements()
+          } catch {
+            self.errorMessage = error.localizedDescription
+          }
         }
       }
-    }
+    )
   }
 
   private func verified<Value>(_ result: VerificationResult<Value>) throws -> Value {

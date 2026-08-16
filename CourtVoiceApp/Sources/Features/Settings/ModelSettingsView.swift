@@ -47,7 +47,7 @@ struct ModelSettingsView: View {
         }
       }
 
-      Section("OpenAI-compatible BYOK") {
+      Section {
         TextField("HTTPS transcription endpoint", text: $configuration.openAITranscriptionEndpoint)
           .keyboardType(.URL)
           .textInputAutocapitalization(.never)
@@ -78,13 +78,15 @@ struct ModelSettingsView: View {
             }
           }
         }
+      } header: {
+        Text("OpenAI-compatible BYOK")
       } footer: {
         Text(
           "Short voice segments are sent directly from this device to the configured endpoint. The provider may bill your own account. CourtVoice never adds the key to logs or match exports."
         )
       }
 
-      Section("Deepgram BYOK") {
+      Section {
         TextField("Model", text: $configuration.deepgramModel)
           .textInputAutocapitalization(.never)
           .autocorrectionDisabled()
@@ -114,6 +116,8 @@ struct ModelSettingsView: View {
             }
           }
         }
+      } header: {
+        Text("Deepgram BYOK")
       } footer: {
         Text(
           "While listening is active, 16 kHz mono PCM is streamed directly to Deepgram. Stopping or pausing the match stops capture."

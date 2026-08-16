@@ -74,6 +74,7 @@ struct MatchSetupView: View {
           }
           .disabled(draft.canStart == false)
           .fontWeight(.semibold)
+          .accessibilityIdentifier("matchSetup.start")
         }
       }
     }

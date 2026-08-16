@@ -80,6 +80,7 @@ struct HomeView: View {
       .tint(CourtVoiceTheme.tennisYellow)
       .foregroundStyle(CourtVoiceTheme.ink)
       .clipShape(RoundedRectangle(cornerRadius: CourtVoiceTheme.controlCornerRadius))
+      .accessibilityIdentifier("home.startMatch")
     }
     .padding(24)
     .background(
@@ -117,6 +118,7 @@ struct HomeView: View {
       .courtVoiceCard()
     }
     .buttonStyle(.plain)
+    .accessibilityIdentifier("home.analyzeMedia")
   }
 
   private var privacyCard: some View {

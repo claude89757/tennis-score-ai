@@ -110,6 +110,7 @@ struct LiveMatchView: View {
       }
       .buttonStyle(.bordered)
       .accessibilityLabel("Close match")
+      .accessibilityIdentifier("live.close")
 
       VStack(alignment: .leading, spacing: 2) {
         Text("LIVE MATCH")
@@ -119,15 +120,19 @@ struct LiveMatchView: View {
           .font(.subheadline)
           .foregroundStyle(.white.opacity(0.72))
       }
-
-      Spacer()
+      .lineLimit(1)
+      .minimumScaleFactor(0.7)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .layoutPriority(1)
 
       if let startedAt = controller.state.startedAt {
         TimelineView(.periodic(from: .now, by: 1)) { context in
           Text(elapsedTime(from: startedAt, to: context.date))
             .font(.headline.monospacedDigit())
             .foregroundStyle(.white)
+            .lineLimit(1)
         }
+        .layoutPriority(0)
       }
 
       Menu {
@@ -242,6 +247,7 @@ struct LiveMatchView: View {
       .tint(controller.isListening ? .white : CourtVoiceTheme.tennisYellow)
       .foregroundStyle(CourtVoiceTheme.ink)
       .disabled(controller.state.status != .inProgress)
+      .accessibilityIdentifier("live.listen")
     }
     .padding(16)
     .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 22))
@@ -281,6 +287,7 @@ struct LiveMatchView: View {
     .tint(side == .home ? CourtVoiceTheme.tennisYellow : .white)
     .foregroundStyle(CourtVoiceTheme.ink)
     .disabled(controller.state.status != .inProgress)
+    .accessibilityIdentifier("live.award.\(side.rawValue)")
   }
 
   private var utilityControls: some View {
@@ -294,6 +301,7 @@ struct LiveMatchView: View {
             .frame(minHeight: 50)
         }
         .buttonStyle(.bordered)
+        .accessibilityIdentifier("live.undo")
 
         Button {
           Task { await controller.togglePause() }
@@ -327,6 +335,7 @@ struct LiveMatchView: View {
           .frame(minHeight: 50)
       }
       .buttonStyle(.bordered)
+      .accessibilityIdentifier("live.correct")
     }
     .foregroundStyle(.white)
   }

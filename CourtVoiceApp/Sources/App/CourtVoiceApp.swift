@@ -9,6 +9,7 @@ struct CourtVoiceApp: App {
       RootView()
         .environment(appModel)
         .task {
+          await appModel.prepareLaunchConfiguration()
           await appModel.bootstrap()
         }
     }

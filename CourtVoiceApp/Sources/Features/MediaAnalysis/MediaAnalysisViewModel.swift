@@ -32,10 +32,11 @@ final class MediaAnalysisViewModel {
   private(set) var analysis: MediaScoreAnalysis?
   var errorMessage: String?
 
-  private var analysisTask: Task<Void, Never>?
+  @ObservationIgnored
+  private let analysisTask = CancellableTaskHandle()
 
   deinit {
-    analysisTask?.cancel()
+    analysisTask.cancel()
   }
 
   func analyze(
@@ -44,21 +45,22 @@ final class MediaAnalysisViewModel {
     configuration: SpeechConfiguration,
     credentialStore: ProviderCredentialStore
   ) {
-    analysisTask?.cancel()
-    analysisTask = Task { [weak self] in
-      guard let self else { return }
-      await self.performAnalysis(
-        sourceURL: sourceURL,
-        draft: draft,
-        configuration: configuration,
-        credentialStore: credentialStore
-      )
-    }
+    analysisTask.cancel()
+    analysisTask.store(
+      Task { [weak self] in
+        guard let self else { return }
+        await self.performAnalysis(
+          sourceURL: sourceURL,
+          draft: draft,
+          configuration: configuration,
+          credentialStore: credentialStore
+        )
+      }
+    )
   }
 
   func cancel() {
-    analysisTask?.cancel()
-    analysisTask = nil
+    analysisTask.cancel()
     phase = .idle
     progress = 0
   }

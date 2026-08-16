@@ -39,6 +39,24 @@ final class AppModel {
     self.entitlementStore = entitlementStore
   }
 
+  func prepareLaunchConfiguration() async {
+    let arguments = ProcessInfo.processInfo.arguments
+    guard arguments.contains("-ui-testing") else { return }
+
+    do {
+      if arguments.contains("-ui-testing-reset") {
+        try await matchRepository.deleteAll()
+        var next = AppPreferences.initial
+        if arguments.contains("-ui-testing-skip-onboarding") {
+          next.hasCompletedOnboarding = true
+        }
+        try await preferencesRepository.save(next)
+      }
+    } catch {
+      errorMessage = error.localizedDescription
+    }
+  }
+
   func bootstrap() async {
     guard isBootstrapping else { return }
 

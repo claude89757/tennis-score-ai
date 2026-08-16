@@ -42,6 +42,7 @@ struct OnboardingView: View {
             .foregroundStyle(.white.opacity(0.85))
             .padding(.horizontal, 8)
             .frame(minHeight: CourtVoiceTheme.minimumHitTarget)
+            .accessibilityIdentifier("onboarding.skip")
         }
 
         TabView(selection: $page) {
@@ -91,6 +92,7 @@ struct OnboardingView: View {
         .tint(CourtVoiceTheme.tennisYellow)
         .foregroundStyle(CourtVoiceTheme.ink)
         .clipShape(RoundedRectangle(cornerRadius: CourtVoiceTheme.controlCornerRadius))
+        .accessibilityIdentifier("onboarding.continue")
       }
       .padding()
     }

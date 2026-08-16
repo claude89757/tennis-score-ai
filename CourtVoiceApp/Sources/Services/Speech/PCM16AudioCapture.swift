@@ -73,7 +73,10 @@ final class PCM16AudioCapture: @unchecked Sendable {
       return
     }
 
-    var suppliedInput = false
+    // convert(_:error:withInputFrom:) invokes this callback synchronously on the
+    // current thread; the Sendable annotation on the AVFAudio API is overly strict.
+    nonisolated(unsafe) let sourceBuffer = buffer
+    nonisolated(unsafe) var suppliedInput = false
     var conversionError: NSError?
     let status = converter.convert(to: converted, error: &conversionError) { _, outputStatus in
       if suppliedInput {
@@ -82,7 +85,7 @@ final class PCM16AudioCapture: @unchecked Sendable {
       }
       suppliedInput = true
       outputStatus.pointee = .haveData
-      return buffer
+      return sourceBuffer
     }
 
     guard

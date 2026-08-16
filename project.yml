@@ -1,0 +1,86 @@
+name: CourtVoice
+options:
+  bundleIdPrefix: com.claude89757
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+  generateEmptyDirectories: true
+  xcodeVersion: "16.0"
+
+packages:
+  CourtVoice:
+    path: .
+
+targets:
+  CourtVoiceApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: CourtVoiceApp/Sources
+      - path: CourtVoiceApp/Resources
+        buildPhase: resources
+    info:
+      path: CourtVoiceApp/Info.plist
+    entitlements:
+      path: CourtVoiceApp/CourtVoice.entitlements
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_NAME: CourtVoice
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude89757.courtvoice
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.1.0
+    dependencies:
+      - package: CourtVoice
+        product: CourtVoiceCore
+      - package: CourtVoice
+        product: CourtVoiceAI
+
+  CourtVoiceAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: CourtVoiceAppTests
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.claude89757.courtvoice.tests
+        SWIFT_VERSION: 6.0
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: CourtVoiceApp
+      - package: CourtVoice
+        product: CourtVoiceCore
+      - package: CourtVoice
+        product: CourtVoiceAI
+
+schemes:
+  CourtVoice:
+    build:
+      targets:
+        CourtVoiceApp: all
+        CourtVoiceAppTests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: CourtVoiceApp/Resources/CourtVoice.storekit
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - name: CourtVoiceAppTests
+          parallelizable: true
+    archive:
+      config: Release

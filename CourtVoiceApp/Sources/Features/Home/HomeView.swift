@@ -4,12 +4,14 @@ import SwiftUI
 struct HomeView: View {
   @Environment(AppModel.self) private var appModel
   @State private var isShowingMatchSetup = false
+  @State private var isShowingMediaAnalysis = false
 
   var body: some View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 22) {
           heroCard
+          mediaAnalysisCard
 
           if let recentMatch = appModel.matches.first {
             VStack(alignment: .leading, spacing: 12) {
@@ -42,6 +44,9 @@ struct HomeView: View {
         MatchSetupView { draft in
           Task { await appModel.startMatch(from: draft) }
         }
+      }
+      .sheet(isPresented: $isShowingMediaAnalysis) {
+        MediaAnalysisView()
       }
       .refreshable {
         await appModel.refreshMatches()
@@ -86,6 +91,32 @@ struct HomeView: View {
       in: RoundedRectangle(cornerRadius: 30)
     )
     .shadow(color: CourtVoiceTheme.courtGreen.opacity(0.18), radius: 24, y: 12)
+  }
+
+  private var mediaAnalysisCard: some View {
+    Button {
+      isShowingMediaAnalysis = true
+    } label: {
+      HStack(spacing: 14) {
+        Image(systemName: "film.stack.fill")
+          .font(.title2)
+          .foregroundStyle(CourtVoiceTheme.courtGreen)
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Analyze a recorded match")
+            .font(.headline)
+            .foregroundStyle(.primary)
+          Text("Import video or audio and build a timestamped, rules-checked score draft.")
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+        }
+        Spacer()
+        Image(systemName: "chevron.right")
+          .foregroundStyle(.secondary)
+      }
+      .courtVoiceCard()
+    }
+    .buttonStyle(.plain)
   }
 
   private var privacyCard: some View {
